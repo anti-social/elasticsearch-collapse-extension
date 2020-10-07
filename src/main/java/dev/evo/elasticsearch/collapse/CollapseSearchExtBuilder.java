@@ -15,8 +15,14 @@ public class CollapseSearchExtBuilder extends SearchExtBuilder {
     public static final String NAME = "collapse";
 
     private static final ParseField GROUP_FIELD_NAME = new ParseField("field");
-    private static final ParseField SIZE_FIELD_NAME = new ParseField("size");
+
+    // Window size on which we will operate to group and collapse documents
+    private static final ParseField WINDOW_SIZE_FIELD_NAME = new ParseField("window_size");
+    private static final int DEFAULT_WINDOW_SIZE = 10_000;
+
+    // Number of documents that will be returned from a shard
     private static final ParseField SHARD_SIZE_FIELD_NAME = new ParseField("shard_size");
+    private static final int DEFAULT_SHARD_SIZE = 1_000;
 
     private static final ConstructingObjectParser<CollapseSearchExtBuilder, Void> PARSER =
         new ConstructingObjectParser<>(
@@ -25,13 +31,13 @@ public class CollapseSearchExtBuilder extends SearchExtBuilder {
         );
     static {
         PARSER.declareString(ConstructingObjectParser.constructorArg(), GROUP_FIELD_NAME);
-        PARSER.declareInt(CollapseSearchExtBuilder::size, SIZE_FIELD_NAME);
+        PARSER.declareInt(CollapseSearchExtBuilder::windowSize, WINDOW_SIZE_FIELD_NAME);
         PARSER.declareInt(CollapseSearchExtBuilder::shardSize, SHARD_SIZE_FIELD_NAME);
     }
 
     private final String groupField;
-    private int size = 1000;
-    private int shardSize = 10_000;
+    private int windowSize = DEFAULT_WINDOW_SIZE;
+    private int shardSize = DEFAULT_SHARD_SIZE;
 
     public CollapseSearchExtBuilder(String groupField) {
         this.groupField = groupField;
@@ -39,8 +45,15 @@ public class CollapseSearchExtBuilder extends SearchExtBuilder {
 
     public CollapseSearchExtBuilder(StreamInput in) throws IOException {
         groupField = in.readString();
-        size = in.readInt();
+        windowSize = in.readInt();
         shardSize = in.readInt();
+    }
+
+    @Override
+    public void writeTo(StreamOutput out) throws IOException {
+        out.writeString(groupField);
+        out.writeInt(windowSize);
+        out.writeInt(shardSize);
     }
 
     public static CollapseSearchExtBuilder fromXContent(XContentParser parser) {
@@ -51,12 +64,12 @@ public class CollapseSearchExtBuilder extends SearchExtBuilder {
         return groupField;
     }
 
-    public void size(int size) {
-        this.size = size;
+    public void windowSize(int size) {
+        this.windowSize = size;
     }
 
-    public int size() {
-        return size;
+    public int windowSize() {
+        return windowSize;
     }
 
     public void shardSize(int shardSize) {
@@ -73,17 +86,10 @@ public class CollapseSearchExtBuilder extends SearchExtBuilder {
     }
 
     @Override
-    public void writeTo(StreamOutput out) throws IOException {
-        out.writeString(groupField);
-        out.writeInt(size);
-        out.writeInt(shardSize);
-    }
-
-    @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject(NAME);
         builder.field(GROUP_FIELD_NAME.getPreferredName(), groupField);
-        builder.field(SIZE_FIELD_NAME.getPreferredName(), size);
+        builder.field(WINDOW_SIZE_FIELD_NAME.getPreferredName(), windowSize);
         builder.field(SHARD_SIZE_FIELD_NAME.getPreferredName(), shardSize);
         builder.endObject();
         return builder;
@@ -91,7 +97,7 @@ public class CollapseSearchExtBuilder extends SearchExtBuilder {
 
     @Override
     public int hashCode() {
-        return Objects.hash(groupField, size, shardSize);
+        return Objects.hash(groupField, windowSize, shardSize);
     }
 
     @Override
@@ -101,7 +107,7 @@ public class CollapseSearchExtBuilder extends SearchExtBuilder {
         }
         var other = (CollapseSearchExtBuilder) obj;
         return other.groupField.equals(groupField) &&
-            other.size == size &&
+            other.windowSize == windowSize &&
             other.shardSize == shardSize;
     }
 }

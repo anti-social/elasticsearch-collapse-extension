@@ -67,7 +67,8 @@ public class CollapseRescoreFilter implements ActionFilter {
         final var collapseExt = (CollapseSearchExtBuilder) searchExt.get();
 
         source.from(0);
-        final var size = collapseExt.shardSize();
+        // Set size equal to window size thus we will get right number of docs after a merge
+        final var size = collapseExt.windowSize();
         source.size(size);
 
         final var groupField = collapseExt.groupField();
@@ -75,7 +76,8 @@ public class CollapseRescoreFilter implements ActionFilter {
 
         source.addRescorer(
             new CollapseRescorerBuilder(collapseExt.groupField())
-                .windowSize(collapseExt.size())
+                .windowSize(collapseExt.windowSize())
+                .shardSize(collapseExt.shardSize())
         );
 
         var collapseListener = new ActionListener<Response>() {

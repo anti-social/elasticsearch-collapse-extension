@@ -31,10 +31,12 @@ public class CollapseRescorer implements Rescorer {
 
     static class Context extends RescoreContext {
         final IndexFieldData<?> groupField;
+        final int shardSize;
 
-        public Context(int windowSize, IndexFieldData<?> groupField) {
+        public Context(int windowSize, IndexFieldData<?> groupField, int shardSize) {
             super(windowSize, INSTANCE);
             this.groupField = groupField;
+            this.shardSize = shardSize;
         }
     }
 
@@ -102,7 +104,7 @@ public class CollapseRescorer implements Rescorer {
         return new TopDocs(
             topDocs.totalHits,
             collapsedHits
-                .subList(0, Math.min(size, collapsedHits.size()))
+                .subList(0, Math.min(collapsedHits.size(), ctx.shardSize))
                 .toArray(new ScoreDoc[0]),
             topDocs.getMaxScore()
         );
