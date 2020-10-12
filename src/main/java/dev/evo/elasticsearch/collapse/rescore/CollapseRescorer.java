@@ -1,10 +1,9 @@
 package dev.evo.elasticsearch.collapse.rescore;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.index.Term;
-import org.apache.lucene.search.Explanation;
-import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.ScoreDoc;
-import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.*;
 import org.apache.lucene.util.BytesRef;
 import org.elasticsearch.index.fielddata.IndexFieldData;
 import org.elasticsearch.index.fielddata.SortedBinaryDocValues;
@@ -15,6 +14,8 @@ import java.io.IOException;
 import java.util.*;
 
 public class CollapseRescorer implements Rescorer {
+    private static final Logger logger = LogManager.getLogger(CollapseRescorer.class);
+
     private static final CollapseRescorer INSTANCE = new CollapseRescorer();
 
     private static final Comparator<ScoreDoc> DOC_COMPARATOR = Comparator.comparingInt(d -> d.doc);
@@ -32,11 +33,29 @@ public class CollapseRescorer implements Rescorer {
     static class Context extends RescoreContext {
         final IndexFieldData<?> groupField;
         final int shardSize;
+        final Sort sort;
 
-        public Context(int windowSize, IndexFieldData<?> groupField, int shardSize) {
+        public Context(int windowSize, IndexFieldData<?> groupField, int shardSize, Sort sort) {
             super(windowSize, INSTANCE);
             this.groupField = groupField;
             this.shardSize = shardSize;
+            this.sort = sort;
+        }
+    }
+
+    static class CollapsedScoreDoc extends ScoreDoc {
+        int slot;
+        final int collapseIx;
+
+        CollapsedScoreDoc(ScoreDoc hit, int slot, int collapseIx) {
+            super(hit.doc, hit.score, hit.shardIndex);
+            this.slot = slot;
+            this.collapseIx = collapseIx;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("GroupedScoreDoc<doc = %s, score = %s, slot = %s, ix = %s>", doc, score, slot, collapseIx);
         }
     }
 
@@ -58,8 +77,6 @@ public class CollapseRescorer implements Rescorer {
 
         Arrays.sort(hits, DOC_COMPARATOR);
 
-        final var collapsedHits = new ArrayList<ScoreDoc>(size);
-
         final var readerContexts = searcher.getIndexReader().leaves();
         var currentReaderIx = -1;
         var currentReaderEndDoc = 0;
@@ -68,9 +85,47 @@ public class CollapseRescorer implements Rescorer {
             .load(currentReaderContext)
             .getBytesValues();
 
-        final var seenGroupValues = new HashMap<BytesRef, Float>();
+        final var sortFields = ctx.sort.getSort();
+        final var comparator = sortFields[0].getComparator(hits.length, 0);
+        final var leafComparator = comparator.getLeafComparator(currentReaderContext);
+        final var fakeScorer = new Scorer(null) {
+            private int doc;
+            private float score;
 
+            public void setDoc(int doc) {
+                this.doc = doc;
+            }
+
+            public void setScore(float score) {
+                this.score = score;
+            }
+
+            @Override
+            public int docID() {
+                return doc;
+            }
+
+            @Override
+            public float score() {
+                return score;
+            }
+
+            @Override
+            public DocIdSetIterator iterator() {
+                return null;
+            }
+        };
+        leafComparator.setScorer(fakeScorer);
+
+        final var collapsedHits = new ArrayList<CollapsedScoreDoc>(size);
+
+        // Stores the most relevant hit data for every group
+        final var groupTops = new HashMap<BytesRef, CollapsedScoreDoc>();
+
+        var slot = -1;
         for (var hit : hits) {
+            slot++;
+
             final var prevReaderContext = currentReaderContext;
 
             // find segment that contains current document
@@ -87,15 +142,35 @@ public class CollapseRescorer implements Rescorer {
                     .load(currentReaderContext)
                     .getBytesValues();
             }
+
+            fakeScorer.setDoc(docId);
+            fakeScorer.setScore(hit.score);
+            leafComparator.copy(slot, docId);
+
             if (groupValues.advanceExact(docId)) {
                 final var groupValue = groupValues.nextValue();
-                final var maxGroupScore = seenGroupValues.get(groupValue);
-                if (maxGroupScore == null || hit.score > maxGroupScore) {
-                    collapsedHits.add(hit);
-                    seenGroupValues.put(groupValue.clone(), hit.score);
+                final var top = groupTops.get(groupValue);
+
+                if (top == null) {
+                    final var scoreDoc = new CollapsedScoreDoc(hit, slot, collapsedHits.size());
+                    collapsedHits.add(scoreDoc);
+                    groupTops.put(
+                        BytesRef.deepCopyOf(groupValue), scoreDoc
+                    );
+                    continue;
+                }
+
+                // Use comparator's bottom as a top inverting condition
+                leafComparator.setBottom(top.collapseIx);
+                if (leafComparator.compareBottom(hit.doc) > 0) {
+                    top.doc = hit.doc;
+                    top.slot = slot;
+                }
+                if (hit.score > top.score) {
+                    top.score = hit.score;
                 }
             } else {
-                collapsedHits.add(hit);
+                collapsedHits.add(new CollapsedScoreDoc(hit, slot, collapsedHits.size()));
             }
         }
 

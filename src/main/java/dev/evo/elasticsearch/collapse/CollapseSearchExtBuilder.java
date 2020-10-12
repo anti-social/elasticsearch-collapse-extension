@@ -4,11 +4,16 @@ import org.elasticsearch.common.ParseField;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
 import org.elasticsearch.common.xcontent.ConstructingObjectParser;
+import org.elasticsearch.common.xcontent.ObjectParser;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.search.SearchExtBuilder;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.sort.SortBuilder;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 public class CollapseSearchExtBuilder extends SearchExtBuilder {
@@ -33,20 +38,33 @@ public class CollapseSearchExtBuilder extends SearchExtBuilder {
         PARSER.declareString(ConstructingObjectParser.constructorArg(), GROUP_FIELD_NAME);
         PARSER.declareInt(CollapseSearchExtBuilder::windowSize, WINDOW_SIZE_FIELD_NAME);
         PARSER.declareInt(CollapseSearchExtBuilder::shardSize, SHARD_SIZE_FIELD_NAME);
+        PARSER.declareField(
+            CollapseSearchExtBuilder::setSorts,
+            (parser, ctx) -> SortBuilder.fromXContent(parser),
+            SearchSourceBuilder.SORT_FIELD,
+            ObjectParser.ValueType.OBJECT_ARRAY
+        );
     }
 
     private final String groupField;
     private int windowSize = DEFAULT_WINDOW_SIZE;
     private int shardSize = DEFAULT_SHARD_SIZE;
+    private List<SortBuilder<?>> sorts;
 
     public CollapseSearchExtBuilder(String groupField) {
         this.groupField = groupField;
+        this.sorts = new ArrayList<>();
     }
 
     public CollapseSearchExtBuilder(StreamInput in) throws IOException {
         groupField = in.readString();
         windowSize = in.readInt();
         shardSize = in.readInt();
+        final int size = in.readVInt();
+        sorts = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            sorts.add(in.readNamedWriteable(SortBuilder.class));
+        }
     }
 
     @Override
@@ -54,6 +72,10 @@ public class CollapseSearchExtBuilder extends SearchExtBuilder {
         out.writeString(groupField);
         out.writeInt(windowSize);
         out.writeInt(shardSize);
+        out.writeVInt(sorts.size());
+        for (var sort : sorts) {
+            out.writeNamedWriteable(sort);
+        }
     }
 
     public static CollapseSearchExtBuilder fromXContent(XContentParser parser) {
@@ -78,6 +100,20 @@ public class CollapseSearchExtBuilder extends SearchExtBuilder {
 
     public int shardSize() {
         return shardSize;
+    }
+
+    public List<SortBuilder<?>> getSorts() {
+        return sorts;
+    }
+
+    public CollapseSearchExtBuilder setSorts(List<SortBuilder<?>> sorts) {
+        this.sorts = sorts;
+        return this;
+    }
+
+    public CollapseSearchExtBuilder addSort(SortBuilder<?> sort) {
+        sorts.add(sort);
+        return this;
     }
 
     @Override

@@ -10,6 +10,7 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.functionscore.FieldValueFactorFunctionBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.test.ESIntegTestCase;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
@@ -131,6 +132,32 @@ public class CollapseRescorerIT extends ESIntegTestCase {
         assertOrderedSearchHits(response, "7", "5");
     }
 
+    public void testSort() throws IOException {
+        createAndPopulateTestIndex(1);
+
+        var response = client().prepareSearch(INDEX_NAME)
+            .setSource(
+                new SearchSourceBuilder()
+                    .query(rankQuery())
+                    .ext(List.of(
+                        new CollapseSearchExtBuilder(COLLAPSE_FIELD)
+                            .addSort(SortBuilders.fieldSort("price"))
+                    ))
+            )
+            .get();
+
+        assertSearchResponse(response);
+
+        assertHitCount(response, 4);
+        assertOrderedSearchHits(response, "1", "5", "3", "6");
+
+        // Scores must be replaced from the best hit in a group
+        assertSearchHit(response, 1, hasScore(1.7F));
+        assertSearchHit(response, 2, hasScore(1.5F));
+        assertSearchHit(response, 3, hasScore(1.3F));
+        assertSearchHit(response, 4, hasScore(1.2F));
+    }
+
     private void createTestIndex(int numberOfShards) throws IOException {
         assertAcked(
             prepareCreate(INDEX_NAME)
@@ -167,6 +194,9 @@ public class CollapseRescorerIT extends ESIntegTestCase {
                         .startObject("rank")
                             .field("type", "float")
                         .endObject()
+                        .startObject("price")
+                            .field("type", "float")
+                        .endObject()
                     .endObject()
                 .endObject()
             .endObject();
@@ -178,13 +208,15 @@ public class CollapseRescorerIT extends ESIntegTestCase {
                 .setId("1")
                 .setSource(
                     COLLAPSE_FIELD, 1,
-                    "rank", 1.1F
+                    "rank", 1.1F,
+                    "price", 0.01F
                 ),
             client().prepareIndex()
                 .setId("2")
                 .setSource(
                     COLLAPSE_FIELD, 2,
-                    "rank", 1.2F
+                    "rank", 1.2F,
+                    "price", 12F
                 ),
             client().prepareIndex()
                 .setId("3")
@@ -195,7 +227,8 @@ public class CollapseRescorerIT extends ESIntegTestCase {
                 .setId("4")
                 .setSource(
                     COLLAPSE_FIELD, 1,
-                    "rank", 1.4F
+                    "rank", 1.4F,
+                    "price", 9.99F
                 ),
             client().prepareIndex()
                 .setId("5")
@@ -206,13 +239,15 @@ public class CollapseRescorerIT extends ESIntegTestCase {
                 .setId("6")
                 .setSource(
                     COLLAPSE_FIELD, 2,
-                    "rank", 0.6F
+                    "rank", 0.6F,
+                    "price", 11F
                 ),
             client().prepareIndex()
                 .setId("7")
                 .setSource(
                     COLLAPSE_FIELD, 1,
-                    "rank", 1.7F
+                    "rank", 1.7F,
+                    "price", 10F
                 )
         );
     }

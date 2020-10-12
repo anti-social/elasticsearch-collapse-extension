@@ -78,6 +78,7 @@ public class CollapseRescoreFilter implements ActionFilter {
             new CollapseRescorerBuilder(collapseExt.groupField())
                 .windowSize(collapseExt.windowSize())
                 .shardSize(collapseExt.shardSize())
+                .setSorts(collapseExt.getSorts())
         );
 
         var collapseListener = new ActionListener<Response>() {
