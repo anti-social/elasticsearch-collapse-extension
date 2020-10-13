@@ -43,8 +43,8 @@ There are 2 solution for collapsing out of the box but they both have some drawb
 
 ### [Collapse](https://www.elastic.co/guide/en/elasticsearch/reference/7.9/collapse-search-results.html)
 
-Firstly it collapses all the documents that don't have value for collapsing. This can be bypassed populating some random value
-for such documents.
+Firstly it collapses all the documents that don't have value for collapsing into a single hit.
+This can be bypassed populating some random value for such documents.
 
 And what's more important it does not support rescoring which we use a lot for deboosting products from the same company:
 
