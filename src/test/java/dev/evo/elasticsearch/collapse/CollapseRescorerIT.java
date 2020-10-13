@@ -16,6 +16,7 @@ import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -59,25 +60,29 @@ public class CollapseRescorerIT extends ESIntegTestCase {
         assertHitCount(response, 4);
         assertOrderedSearchHits(response, "7", "5", "3", "2");
 
-        assertSearchHit(response, 1,
-            new FieldsMatcher(List.of(
+        assertSearchHit(
+            response, 1,
+            hasFields(
                 new DocumentField("model_id", List.of(1L))
-            ))
+            )
         );
-        assertSearchHit(response, 2,
-            new FieldsMatcher(List.of(
+        assertSearchHit(
+            response, 2,
+            hasFields(
                 new DocumentField("model_id", List.of())
-            ))
+            )
         );
-        assertSearchHit(response, 3,
-            new FieldsMatcher(List.of(
+        assertSearchHit(
+            response, 3,
+            hasFields(
                 new DocumentField("model_id", List.of())
-            ))
+            )
         );
-        assertSearchHit(response, 4,
-            new FieldsMatcher(List.of(
+        assertSearchHit(
+            response, 4,
+            hasFields(
                 new DocumentField("model_id", List.of(2L))
-            ))
+            )
         );
     }
 
@@ -156,6 +161,23 @@ public class CollapseRescorerIT extends ESIntegTestCase {
         assertSearchHit(response, 2, hasScore(1.5F));
         assertSearchHit(response, 3, hasScore(1.3F));
         assertSearchHit(response, 4, hasScore(1.2F));
+
+        assertSearchHit(
+            response, 1,
+            hasFields(new DocumentField("model_id", List.of(1L)))
+        );
+        assertSearchHit(
+            response, 2,
+            hasFields(new DocumentField("model_id", List.of()))
+        );
+        assertSearchHit(
+            response, 3,
+            hasFields(new DocumentField("model_id", List.of()))
+        );
+        assertSearchHit(
+            response, 4,
+            hasFields(new DocumentField("model_id", List.of(2L)))
+        );
     }
 
     private void createTestIndex(int numberOfShards) throws IOException {
@@ -250,6 +272,10 @@ public class CollapseRescorerIT extends ESIntegTestCase {
                     "price", 10F
                 )
         );
+    }
+
+    private FieldsMatcher hasFields(DocumentField... fields) {
+        return new FieldsMatcher(Arrays.asList(fields));
     }
 
     static class FieldsMatcher extends BaseMatcher<SearchHit> {
