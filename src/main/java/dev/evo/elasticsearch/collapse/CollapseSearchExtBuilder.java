@@ -1,6 +1,7 @@
 package dev.evo.elasticsearch.collapse;
 
 import org.elasticsearch.common.ParseField;
+import org.elasticsearch.common.ParsingException;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
 import org.elasticsearch.common.xcontent.ConstructingObjectParser;
@@ -40,7 +41,7 @@ public class CollapseSearchExtBuilder extends SearchExtBuilder {
         PARSER.declareInt(CollapseSearchExtBuilder::shardSize, SHARD_SIZE_FIELD_NAME);
         PARSER.declareField(
             CollapseSearchExtBuilder::setSorts,
-            (parser, ctx) -> SortBuilder.fromXContent(parser),
+            (parser, ctx) -> checkSorts(SortBuilder.fromXContent(parser)),
             SearchSourceBuilder.SORT_FIELD,
             ObjectParser.ValueType.OBJECT_ARRAY
         );
@@ -65,6 +66,7 @@ public class CollapseSearchExtBuilder extends SearchExtBuilder {
         for (int i = 0; i < size; i++) {
             sorts.add(in.readNamedWriteable(SortBuilder.class));
         }
+        checkSorts(sorts);
     }
 
     @Override
@@ -76,6 +78,13 @@ public class CollapseSearchExtBuilder extends SearchExtBuilder {
         for (var sort : sorts) {
             out.writeNamedWriteable(sort);
         }
+    }
+
+    private static List<SortBuilder<?>> checkSorts(List<SortBuilder<?>> sorts) {
+        if (sorts.size() > 1) {
+            throw new IllegalArgumentException("Currently only single sort is supported");
+        }
+        return sorts;
     }
 
     public static CollapseSearchExtBuilder fromXContent(XContentParser parser) {

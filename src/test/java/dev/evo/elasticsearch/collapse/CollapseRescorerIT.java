@@ -8,21 +8,24 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.functionscore.FieldValueFactorFunctionBuilder;
+import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.test.ESIntegTestCase;
+import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
+
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
+
+import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.*;
+import static org.hamcrest.CoreMatchers.equalTo;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
-import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
-import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.*;
 
 @ESIntegTestCase.ClusterScope(scope = ESIntegTestCase.Scope.SUITE)
 public class CollapseRescorerIT extends ESIntegTestCase {
@@ -177,6 +180,24 @@ public class CollapseRescorerIT extends ESIntegTestCase {
         assertSearchHit(
             response, 4,
             hasFields(new DocumentField("model_id", List.of(2L)))
+        );
+    }
+
+    public void testMultipleSort() throws IOException {
+        createAndPopulateTestIndex(1);
+
+        assertThrows(
+            client().prepareSearch(INDEX_NAME)
+                .setSource(
+                    new SearchSourceBuilder()
+                        .query(rankQuery())
+                        .ext(List.of(
+                            new CollapseSearchExtBuilder(COLLAPSE_FIELD)
+                                .addSort(SortBuilders.fieldSort("price"))
+                                .addSort(SortBuilders.fieldSort("rank"))
+                        ))
+                ),
+            RestStatus.BAD_REQUEST
         );
     }
 
