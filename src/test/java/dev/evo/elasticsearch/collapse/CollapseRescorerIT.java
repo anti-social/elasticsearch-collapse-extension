@@ -12,20 +12,27 @@ import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
+import org.elasticsearch.search.sort.SortOrder;
 import org.elasticsearch.test.ESIntegTestCase;
-import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
-
-import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.*;
-import static org.hamcrest.CoreMatchers.equalTo;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
+import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertAcked;
+import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertHitCount;
+import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertOrderedSearchHits;
+import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertSearchHit;
+import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertSearchResponse;
+import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertThrows;
+import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.hasScore;
+
 
 @ESIntegTestCase.ClusterScope(scope = ESIntegTestCase.Scope.SUITE)
 public class CollapseRescorerIT extends ESIntegTestCase {
@@ -140,7 +147,7 @@ public class CollapseRescorerIT extends ESIntegTestCase {
         assertOrderedSearchHits(response, "7", "5");
     }
 
-    public void testSort() throws IOException {
+    public void testFieldSort() throws IOException {
         createAndPopulateTestIndex(1);
 
         var response = client().prepareSearch(INDEX_NAME)
@@ -167,20 +174,139 @@ public class CollapseRescorerIT extends ESIntegTestCase {
 
         assertSearchHit(
             response, 1,
-            hasFields(new DocumentField("model_id", List.of(1L)))
+            hasFields(
+                new DocumentField("model_id", List.of(1L)),
+                new DocumentField("price", List.of(Float.valueOf(0.01F).doubleValue()))
+            )
         );
         assertSearchHit(
             response, 2,
-            hasFields(new DocumentField("model_id", List.of()))
+            hasFields(
+                new DocumentField("model_id", List.of()),
+                new DocumentField("price", List.of())
+            )
         );
         assertSearchHit(
             response, 3,
-            hasFields(new DocumentField("model_id", List.of()))
+            hasFields(
+                new DocumentField("model_id", List.of()),
+                new DocumentField("price", List.of())
+            )
         );
         assertSearchHit(
             response, 4,
-            hasFields(new DocumentField("model_id", List.of(2L)))
+            hasFields(
+                new DocumentField("model_id", List.of(2L)),
+                new DocumentField("price", List.of(11.0))
+            )
         );
+    }
+
+    public void testFieldSortReverse() throws IOException {
+        createAndPopulateTestIndex(1);
+
+        var response = client().prepareSearch(INDEX_NAME)
+            .setSource(
+                new SearchSourceBuilder()
+                    .query(rankQuery())
+                    .ext(List.of(
+                        new CollapseSearchExtBuilder(COLLAPSE_FIELD)
+                            .addSort(SortBuilders.fieldSort("price").order(SortOrder.DESC))
+                    ))
+            )
+            .get();
+
+        assertSearchResponse(response);
+
+        assertHitCount(response, 4);
+        assertOrderedSearchHits(response, "7", "5", "3", "2");
+
+        // Scores must be replaced from the best hit in a group
+        assertSearchHit(response, 1, hasScore(1.7F));
+        assertSearchHit(response, 2, hasScore(1.5F));
+        assertSearchHit(response, 3, hasScore(1.3F));
+        assertSearchHit(response, 4, hasScore(1.2F));
+
+        assertSearchHit(
+            response, 1,
+            hasFields(
+                new DocumentField("model_id", List.of(1L)),
+                new DocumentField("price", List.of(10.0))
+            )
+        );
+        assertSearchHit(
+            response, 2,
+            hasFields(
+                new DocumentField("model_id", List.of()),
+                new DocumentField("price", List.of())
+            )
+        );
+        assertSearchHit(
+            response, 3,
+            hasFields(
+                new DocumentField("model_id", List.of()),
+                new DocumentField("price", List.of())
+            )
+        );
+        assertSearchHit(
+            response, 4,
+            hasFields(
+                new DocumentField("model_id", List.of(2L)),
+                new DocumentField("price", List.of(12.0))
+            )
+        );
+    }
+
+    public void testFieldSortMerge() throws IOException {
+        createAndPopulateTestIndex(2);
+
+        var response = client().prepareSearch(INDEX_NAME)
+            .setSource(
+                new SearchSourceBuilder()
+                    .query(rankQuery())
+                    .ext(List.of(
+                        new CollapseSearchExtBuilder(COLLAPSE_FIELD)
+                            .addSort(SortBuilders.fieldSort("price"))
+                    ))
+            )
+            .get();
+
+        assertSearchResponse(response);
+
+        assertHitCount(response, 4);
+        assertOrderedSearchHits(response, "1", "5", "3", "6");
+
+        // Scores must be replaced from the best hit in a group
+        assertSearchHit(response, 1, hasScore(1.7F));
+        assertSearchHit(response, 2, hasScore(1.5F));
+        assertSearchHit(response, 3, hasScore(1.3F));
+        assertSearchHit(response, 4, hasScore(1.2F));
+    }
+
+    public void testFieldSortReverseMerge() throws IOException {
+        createAndPopulateTestIndex(2);
+
+        var response = client().prepareSearch(INDEX_NAME)
+            .setSource(
+                new SearchSourceBuilder()
+                    .query(rankQuery())
+                    .ext(List.of(
+                        new CollapseSearchExtBuilder(COLLAPSE_FIELD)
+                            .addSort(SortBuilders.fieldSort("price").order(SortOrder.DESC))
+                    ))
+            )
+            .get();
+
+        assertSearchResponse(response);
+
+        assertHitCount(response, 4);
+        assertOrderedSearchHits(response, "7", "5", "3", "2");
+
+        // Scores must be replaced from the best hit in a group
+        assertSearchHit(response, 1, hasScore(1.7F));
+        assertSearchHit(response, 2, hasScore(1.5F));
+        assertSearchHit(response, 3, hasScore(1.3F));
+        assertSearchHit(response, 4, hasScore(1.2F));
     }
 
     public void testMultipleSort() throws IOException {

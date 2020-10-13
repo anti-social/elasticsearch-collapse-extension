@@ -10,6 +10,8 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.search.SearchExtBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.sort.FieldSortBuilder;
+import org.elasticsearch.search.sort.ScriptSortBuilder;
 import org.elasticsearch.search.sort.SortBuilder;
 
 import java.io.IOException;
@@ -83,6 +85,15 @@ public class CollapseSearchExtBuilder extends SearchExtBuilder {
     private static List<SortBuilder<?>> checkSorts(List<SortBuilder<?>> sorts) {
         if (sorts.size() > 1) {
             throw new IllegalArgumentException("Currently only single sort is supported");
+        }
+        for (var sort : sorts) {
+            if (sort instanceof FieldSortBuilder) {
+                continue;
+            }
+            if (sort instanceof ScriptSortBuilder) {
+                continue;
+            }
+            throw new IllegalArgumentException("Only field and script sort are supported");
         }
         return sorts;
     }

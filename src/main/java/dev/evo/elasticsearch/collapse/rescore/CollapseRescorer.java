@@ -3,7 +3,13 @@ package dev.evo.elasticsearch.collapse.rescore;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.index.Term;
-import org.apache.lucene.search.*;
+import org.apache.lucene.search.DocIdSetIterator;
+import org.apache.lucene.search.Explanation;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.Scorer;
+import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.util.BytesRef;
 import org.elasticsearch.index.fielddata.IndexFieldData;
 import org.elasticsearch.index.fielddata.SortedBinaryDocValues;
@@ -11,10 +17,14 @@ import org.elasticsearch.search.rescore.RescoreContext;
 import org.elasticsearch.search.rescore.Rescorer;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Set;
 
 public class CollapseRescorer implements Rescorer {
-    private static final Logger logger = LogManager.getLogger(CollapseRescorer.class);
+    private static final Logger LOGGER = LogManager.getLogger(CollapseRescorer.class);
 
     private static final CollapseRescorer INSTANCE = new CollapseRescorer();
 
@@ -86,7 +96,9 @@ public class CollapseRescorer implements Rescorer {
             .getBytesValues();
 
         final var sortFields = ctx.sort.getSort();
-        final var comparator = sortFields[0].getComparator(hits.length, 0);
+        final var sortField = sortFields[0];
+        final var reverseMul = sortField.getReverse() ? -1 : 1;
+        final var comparator = sortField.getComparator(hits.length, 0);
         final var leafComparator = comparator.getLeafComparator(currentReaderContext);
         final var fakeScorer = new Scorer(null) {
             private int doc;
@@ -162,7 +174,7 @@ public class CollapseRescorer implements Rescorer {
 
                 // Use comparator's bottom as a top inverting condition
                 leafComparator.setBottom(top.collapseIx);
-                if (leafComparator.compareBottom(hit.doc) > 0) {
+                if (reverseMul * leafComparator.compareBottom(hit.doc) > 0) {
                     top.doc = hit.doc;
                     top.slot = slot;
                 }
@@ -197,6 +209,7 @@ public class CollapseRescorer implements Rescorer {
         RescoreContext rescoreContext,
         Explanation sourceExplanation
     ) {
+        // TODO: explain that score of the collapsed hit could be borrowed
         return sourceExplanation;
     }
 }
