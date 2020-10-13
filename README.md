@@ -6,8 +6,8 @@ You can collapse search results based on field values:
 ext:
   collapse:
     field: model_id
-    size: 10000  # окно в котором будет происходить колапсинг
-    shard_size: 1000  # кол-во док-ов после колапсинга на одном шарде
+    size: 10000  # window for collapsing
+    shard_size: 1000  # truncate after collapsing on a shard
     sort:
       price: asc
 ```
