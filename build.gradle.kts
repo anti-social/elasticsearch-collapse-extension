@@ -1,10 +1,5 @@
 buildscript {
     repositories {
-        // mavenCentral()
-        // maven {
-        //     name 'sonatype-snapshots'
-        //     url "https://oss.sonatype.org/content/repositories/snapshots/"
-        // }
         jcenter()
     }
     dependencies {
@@ -14,7 +9,6 @@ buildscript {
 
 plugins {
     java
-    // id("elasticsearch.esplugin") version "6.7.2"
 }
 
 apply {
@@ -29,7 +23,6 @@ repositories {
 }
 
 dependencies {
-    // testCompile("junit", "junit", "4.12")
 }
 
 java {
@@ -44,4 +37,8 @@ configure<org.elasticsearch.gradle.plugin.PluginPropertiesExtension> {
     version = project.version.toString()
     licenseFile = project.file("LICENSE.txt")
     noticeFile = project.file("NOTICE.txt")
+}
+
+configure<org.elasticsearch.gradle.test.ClusterConfiguration> {
+    distribution = "default"
 }

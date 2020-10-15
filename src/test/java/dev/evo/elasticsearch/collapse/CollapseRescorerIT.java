@@ -9,8 +9,10 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.functionscore.FieldValueFactorFunctionBuilder;
 import org.elasticsearch.rest.RestStatus;
+import org.elasticsearch.script.Script;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.sort.ScriptSortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import org.elasticsearch.test.ESIntegTestCase;
@@ -149,7 +151,15 @@ public class CollapseRescorerIT extends ESIntegTestCase {
 
     public void testFieldSort() throws IOException {
         createAndPopulateTestIndex(1);
+        checkFieldSort();
+    }
 
+    public void testFieldSortMerge() throws IOException {
+        createAndPopulateTestIndex(2);
+        checkFieldSort();
+    }
+
+    private void checkFieldSort() {
         var response = client().prepareSearch(INDEX_NAME)
             .setSource(
                 new SearchSourceBuilder()
@@ -204,7 +214,15 @@ public class CollapseRescorerIT extends ESIntegTestCase {
 
     public void testFieldSortReverse() throws IOException {
         createAndPopulateTestIndex(1);
+        checkFieldSortReverse();
+    }
 
+    public void testFieldSortReverseMerge() throws IOException {
+        createAndPopulateTestIndex(2);
+        checkFieldSortReverse();
+    }
+
+    private void checkFieldSortReverse() {
         var response = client().prepareSearch(INDEX_NAME)
             .setSource(
                 new SearchSourceBuilder()
@@ -257,16 +275,29 @@ public class CollapseRescorerIT extends ESIntegTestCase {
         );
     }
 
-    public void testFieldSortMerge() throws IOException {
-        createAndPopulateTestIndex(2);
+    public void testScriptSort() throws IOException {
+        createAndPopulateTestIndex(1);
+        checkScriptSort();
+    }
 
+    public void testScriptSortMerge() throws IOException {
+        createAndPopulateTestIndex(1);
+        checkScriptSort();
+    }
+
+    private void checkScriptSort() {
         var response = client().prepareSearch(INDEX_NAME)
             .setSource(
                 new SearchSourceBuilder()
                     .query(rankQuery())
                     .ext(List.of(
                         new CollapseSearchExtBuilder(COLLAPSE_FIELD)
-                            .addSort(SortBuilders.fieldSort("price"))
+                            .addSort(SortBuilders.scriptSort(
+                                new Script(
+                                    "Math.log1p(doc['price'].value)"
+                                ),
+                                ScriptSortBuilder.ScriptSortType.NUMBER
+                            ))
                     ))
             )
             .get();
@@ -281,32 +312,35 @@ public class CollapseRescorerIT extends ESIntegTestCase {
         assertSearchHit(response, 2, hasScore(1.5F));
         assertSearchHit(response, 3, hasScore(1.3F));
         assertSearchHit(response, 4, hasScore(1.2F));
-    }
 
-    public void testFieldSortReverseMerge() throws IOException {
-        createAndPopulateTestIndex(2);
-
-        var response = client().prepareSearch(INDEX_NAME)
-            .setSource(
-                new SearchSourceBuilder()
-                    .query(rankQuery())
-                    .ext(List.of(
-                        new CollapseSearchExtBuilder(COLLAPSE_FIELD)
-                            .addSort(SortBuilders.fieldSort("price").order(SortOrder.DESC))
-                    ))
+        assertSearchHit(
+            response, 1,
+            hasFields(
+                new DocumentField("model_id", List.of(1L)),
+                new DocumentField("_collapse_script_sort", List.of(0.00995033063186371))
             )
-            .get();
-
-        assertSearchResponse(response);
-
-        assertHitCount(response, 4);
-        assertOrderedSearchHits(response, "7", "5", "3", "2");
-
-        // Scores must be replaced from the best hit in a group
-        assertSearchHit(response, 1, hasScore(1.7F));
-        assertSearchHit(response, 2, hasScore(1.5F));
-        assertSearchHit(response, 3, hasScore(1.3F));
-        assertSearchHit(response, 4, hasScore(1.2F));
+        );
+        assertSearchHit(
+            response, 2,
+            hasFields(
+                new DocumentField("model_id", List.of()),
+                new DocumentField("_collapse_script_sort", List.of(0.0))
+            )
+        );
+        assertSearchHit(
+            response, 3,
+            hasFields(
+                new DocumentField("model_id", List.of()),
+                new DocumentField("_collapse_script_sort", List.of(0.0))
+            )
+        );
+        assertSearchHit(
+            response, 4,
+            hasFields(
+                new DocumentField("model_id", List.of(2L)),
+                new DocumentField("_collapse_script_sort", List.of(2.4849066497880004))
+            )
+        );
     }
 
     public void testMultipleSort() throws IOException {
