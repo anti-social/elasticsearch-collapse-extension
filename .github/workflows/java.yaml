@@ -1,0 +1,82 @@
+name: Java CI
+
+on: [push]
+
+env:
+  GRADLE_ARGS: "--info --stacktrace"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up JDK
+      uses: actions/setup-java@v1
+      with:
+        java-version: 12
+    - name: Cache Gradle packages
+      uses: actions/cache@v2
+      with:
+        path: ~/.gradle/caches
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle', '**/*.gradle.kts') }}
+        restore-keys: ${{ runner.os }}-gradle
+
+    - name: Assemble and run tests
+      run: |
+        set -eux
+        if [[ $GITHUB_REF == refs/tags/v*-es* ]]; then
+          ES_VERSION=$(echo $GITHUB_REF | sed 's/refs\/tags\/v.*-es\(.*\)/\1/')
+          GRADLE_ARGS="$GRADLE_ARGS -PesVersion=$ES_VERSION"
+        fi
+        ./gradlew assemble $GRADLE_ARGS
+        ls -lh build/distributions
+        ./gradlew test $GRADLE_ARGS
+        ./gradlew integTest $GRADLE_ARGS
+
+    - uses: actions/upload-artifact@v2
+      if: |
+        github.event_name == 'push' &&
+        startsWith(github.ref, 'refs/tags/v') &&
+        contains(github.ref, '-es')
+      with:
+        name: elasticsearch-plugin
+        # .gradle directory is needed to prevent deleting stale build files
+        path: |
+          .gradle
+          build/distributions
+
+  deploy_es_plugin:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' &&
+      startsWith(github.ref, 'refs/tags/v') &&
+      contains(github.ref, '-es')
+    needs:
+    - build
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up JDK
+      uses: actions/setup-java@v1
+      with:
+        java-version: 12
+    - name: Cache Gradle packages
+      uses: actions/cache@v2
+      with:
+        path: ~/.gradle/caches
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle', '**/*.gradle.kts') }}
+        restore-keys: ${{ runner.os }}-gradle
+
+    - uses: actions/download-artifact@v2
+      with:
+        name: elasticsearch-plugin
+
+    - name: Publish
+      env:
+        BINTRAY_USER: ${{ secrets.BINTRAY_USER }}
+        BINTRAY_API_KEY: ${{ secrets.BINTRAY_API_KEY }}
+      run: |
+        set -eux
+        ES_VERSION=$(echo $GITHUB_REF | sed 's/refs\/tags\/v.*-es\(.*\)/\1/')
+        ls -lh build/distributions
+        ./gradlew bintrayUpload \
+          $GRADLE_ARGS -PesVersion=$ES_VERSION

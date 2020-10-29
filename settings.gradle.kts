@@ -1,2 +1,2 @@
-rootProject.name = "elasticsearch-collapse-rescorer"
+rootProject.name = "elasticsearch-collapse-extension"
 
