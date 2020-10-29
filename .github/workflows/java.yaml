@@ -30,8 +30,7 @@ jobs:
         fi
         ./gradlew assemble $GRADLE_ARGS
         ls -lh build/distributions
-        ./gradlew test $GRADLE_ARGS
-        ./gradlew integTest $GRADLE_ARGS
+        ./gradlew check $GRADLE_ARGS
 
     - uses: actions/upload-artifact@v2
       if: |
