@@ -18,8 +18,6 @@
  */
 package dev.evo.elasticsearch.collapse.rescore;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Explanation;
@@ -43,7 +41,8 @@ import java.util.Locale;
 import java.util.Set;
 
 public class CollapseRescorer implements Rescorer {
-    private static final Logger LOGGER = LogManager.getLogger(CollapseRescorer.class);
+    // private static final org.apache.logging.log4j.Logger LOGGER =
+    //     org.apache.logging.log4j.LogManager.getLogger(CollapseRescorer.class);
 
     private static final CollapseRescorer INSTANCE = new CollapseRescorer();
 
