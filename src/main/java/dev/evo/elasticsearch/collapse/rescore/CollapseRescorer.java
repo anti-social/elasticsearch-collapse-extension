@@ -45,7 +45,7 @@ public class CollapseRescorer implements Rescorer {
         final int shardSize;
         final Sort sort;
 
-        public Context(int windowSize, IndexFieldData<?> groupField, int shardSize, Sort sort) {
+        Context(int windowSize, IndexFieldData<?> groupField, int shardSize, Sort sort) {
             super(windowSize, INSTANCE);
             this.groupField = groupField;
             this.shardSize = shardSize;

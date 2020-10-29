@@ -27,14 +27,14 @@ import java.util.HashMap;
 import java.util.HashSet;
 
 public class CollapseRescoreFilter implements ActionFilter {
-    public static Setting<Integer> COLLAPSE_RESCORE_FILTER_ORDER = Setting.intSetting(
+    public static final Setting<Integer> COLLAPSE_RESCORE_FILTER_ORDER = Setting.intSetting(
         "collapse.rescore.filter.order", 10, Setting.Property.NodeScope
     );
 
-    private final static String SCRIPT_SORT_FIELD_NAME = "_collapse_script_sort";
+    private static final String SCRIPT_SORT_FIELD_NAME = "_collapse_script_sort";
 
     @SuppressWarnings("unchecked")
-    private final static Comparator<Object> ANY_COMPARATOR = (first, second) -> {
+    private static final Comparator<Object> ANY_COMPARATOR = (first, second) -> {
         if (first == null) {
             if (second == null) {
                 return 0;
