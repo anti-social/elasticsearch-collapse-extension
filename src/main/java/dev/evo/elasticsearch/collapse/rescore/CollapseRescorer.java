@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Set;
 
 public class CollapseRescorer implements Rescorer {
@@ -65,7 +66,11 @@ public class CollapseRescorer implements Rescorer {
 
         @Override
         public String toString() {
-            return String.format("GroupedScoreDoc<doc = %s, score = %s, slot = %s, ix = %s>", doc, score, slot, collapseIx);
+            return String.format(
+                Locale.ENGLISH,
+                "GroupedScoreDoc<doc = %s, score = %s, slot = %s, ix = %s>",
+                doc, score, slot, collapseIx
+            );
         }
     }
 
