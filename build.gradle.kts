@@ -43,7 +43,7 @@ java {
 }
 
 configure<org.elasticsearch.gradle.plugin.PluginPropertiesExtension> {
-    name = "collapse-rescore"
+    name = "collapse-extenstion"
     description = "Adds rescorer for mixing up search hits inside their groups."
     classname = "dev.evo.elasticsearch.collapse.CollapseRescorePlugin"
     version = project.version.toString()
