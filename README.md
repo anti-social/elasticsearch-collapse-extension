@@ -6,7 +6,7 @@ You can collapse search results based on field values:
 ext:
   collapse:
     field: model_id
-    size: 10000  # window for collapsing
+    window_size: 10000  # window for collapsing
     shard_size: 1000  # truncate after collapsing on a shard
     sort:
       price: asc
@@ -17,7 +17,7 @@ Or using a script to choose the best hit in a group:
 ext:
   collapse:
     field: model_id
-    size: 10000
+    window_size: 10000
     shard_size: 1000
     sort:
       _script:
