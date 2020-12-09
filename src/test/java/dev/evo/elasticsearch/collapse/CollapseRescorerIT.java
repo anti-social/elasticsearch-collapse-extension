@@ -37,6 +37,7 @@ import org.elasticsearch.test.ESIntegTestCase;
 
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
+import org.hamcrest.Matchers;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -46,6 +47,7 @@ import java.util.stream.Collectors;
 
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertAcked;
+import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertFailures;
 import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertHitCount;
 import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertOrderedSearchHits;
 import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertSearchHit;
@@ -72,6 +74,23 @@ public class CollapseRescorerIT extends ESIntegTestCase {
             .get();
 
         assertSearchResponse(response);
+    }
+
+    public void testUnknownField() throws IOException {
+        createTestIndex(1);
+
+        var request = client().prepareSearch(INDEX_NAME)
+            .setSource(
+                new SearchSourceBuilder()
+                    .query(rankQuery())
+                    .ext(List.of(new CollapseSearchExtBuilder("missing_field")))
+            );
+
+        assertFailures(
+            request,
+            RestStatus.BAD_REQUEST,
+            Matchers.containsString("no mapping found for `missing_field`")
+        );
     }
 
     public void testDefaultCollapsing() throws IOException {

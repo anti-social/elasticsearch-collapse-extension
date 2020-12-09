@@ -29,6 +29,7 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.index.query.QueryRewriteContext;
 import org.elasticsearch.index.query.QueryShardContext;
+import org.elasticsearch.index.query.QueryShardException;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.rescore.RescoreContext;
 import org.elasticsearch.search.rescore.RescorerBuilder;
@@ -132,7 +133,13 @@ public class CollapseRescorerBuilder extends RescorerBuilder<CollapseRescorerBui
     protected RescoreContext innerBuildContext(
         int windowSize, QueryShardContext context
     ) throws IOException {
-        final var groupFieldData = context.getForField(context.fieldMapper(groupField));
+        final var groupFieldType = context.fieldMapper(groupField);
+        if (groupFieldType == null) {
+            throw new QueryShardException(
+                context, "no mapping found for `" + groupField + "` in order to collapse on"
+            );
+        }
+        final var groupFieldData = context.getForField(groupFieldType);
         var shardSize = this.shardSize < 0 ? windowSize : this.shardSize;
         var sort = SortBuilder.buildSort(sorts, context)
             .map(s -> s.sort)
