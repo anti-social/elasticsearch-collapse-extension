@@ -53,6 +53,7 @@ configure<org.elasticsearch.gradle.plugin.PluginPropertiesExtension> {
 
 configure<org.elasticsearch.gradle.test.ClusterConfiguration> {
     distribution = "default"
+    numNodes = 2
 }
 
 // Fails with IllegalArgumentException; reason is unknown

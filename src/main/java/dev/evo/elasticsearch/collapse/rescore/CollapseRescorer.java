@@ -21,6 +21,7 @@ package dev.evo.elasticsearch.collapse.rescore;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Explanation;
+import org.apache.lucene.search.FieldDoc;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.Scorer;
@@ -71,12 +72,12 @@ public class CollapseRescorer implements Rescorer {
         }
     }
 
-    static class CollapsedScoreDoc extends ScoreDoc {
+    static class CollapsedScoreDoc extends FieldDoc {
         int slot;
         final int collapseIx;
 
-        CollapsedScoreDoc(ScoreDoc hit, int slot, int collapseIx) {
-            super(hit.doc, hit.score, hit.shardIndex);
+        CollapsedScoreDoc(ScoreDoc hit, int slot, Object[] fields, int collapseIx) {
+            super(hit.doc, hit.score, fields, hit.shardIndex);
             this.slot = slot;
             this.collapseIx = collapseIx;
         }
@@ -122,7 +123,7 @@ public class CollapseRescorer implements Rescorer {
         final var reverseMul = sortField.getReverse() ? -1 : 1;
         final var comparator = sortField.getComparator(hits.length, 0);
         final var leafComparator = comparator.getLeafComparator(currentReaderContext);
-        final var fakeScorer = new Scorer(null) {
+        final var docScorer = new Scorer(null) {
             private int doc;
             private float score;
 
@@ -149,7 +150,7 @@ public class CollapseRescorer implements Rescorer {
                 return null;
             }
         };
-        leafComparator.setScorer(fakeScorer);
+        leafComparator.setScorer(docScorer);
 
         final var collapsedHits = new ArrayList<CollapsedScoreDoc>(size);
 
@@ -177,16 +178,19 @@ public class CollapseRescorer implements Rescorer {
                     .getBytesValues();
             }
 
-            fakeScorer.setDoc(docId);
-            fakeScorer.setScore(hit.score);
+            docScorer.setDoc(docId);
+            docScorer.setScore(hit.score);
             leafComparator.copy(slot, docId);
+            final var sortValue = comparator.value(slot);
 
             if (groupValues.advanceExact(docId)) {
                 final var groupValue = groupValues.nextValue();
                 final var top = groupTops.get(groupValue);
 
                 if (top == null) {
-                    final var scoreDoc = new CollapsedScoreDoc(hit, slot, collapsedHits.size());
+                    final var scoreDoc = new CollapsedScoreDoc(
+                        hit, slot, new Object[]{sortValue}, collapsedHits.size()
+                    );
                     collapsedHits.add(scoreDoc);
                     groupTops.put(
                         BytesRef.deepCopyOf(groupValue), scoreDoc
@@ -204,18 +208,22 @@ public class CollapseRescorer implements Rescorer {
                     top.score = hit.score;
                 }
             } else {
-                collapsedHits.add(new CollapsedScoreDoc(hit, slot, collapsedHits.size()));
+                final var scoreDoc = new CollapsedScoreDoc(
+                    hit, slot, new Object[]{sortValue}, collapsedHits.size()
+                );
+                collapsedHits.add(scoreDoc);
             }
         }
 
         collapsedHits.sort(SCORE_DOC_COMPARATOR);
 
+        final var numHits = Math.min(collapsedHits.size(), ctx.shardSize);
+        final var trimmedHits = collapsedHits.stream()
+            .limit(numHits)
+            .map(doc -> new ScoreDoc(doc.doc, doc.score, doc.shardIndex))
+            .toArray(ScoreDoc[]::new);
         return new TopDocs(
-            topDocs.totalHits,
-            collapsedHits
-                .subList(0, Math.min(collapsedHits.size(), ctx.shardSize))
-                .toArray(new ScoreDoc[0]),
-            topDocs.getMaxScore()
+            topDocs.totalHits, trimmedHits, topDocs.getMaxScore()
         );
     }
 

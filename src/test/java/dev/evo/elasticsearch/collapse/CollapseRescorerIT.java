@@ -34,6 +34,7 @@ import org.elasticsearch.search.sort.ScriptSortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import org.elasticsearch.test.ESIntegTestCase;
+import org.elasticsearch.test.TestCluster;
 
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
@@ -55,11 +56,22 @@ import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertSear
 import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertThrows;
 import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.hasScore;
 
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 
-@ESIntegTestCase.ClusterScope(scope = ESIntegTestCase.Scope.SUITE)
+
+@ESIntegTestCase.ClusterScope(scope = ESIntegTestCase.Scope.SUITE, numDataNodes = 2)
 public class CollapseRescorerIT extends ESIntegTestCase {
     private static final String INDEX_NAME = "test_collapse";
     private static final String COLLAPSE_FIELD = "model_id";
+
+    @Override
+    protected TestCluster buildTestCluster(Scope scope, long seed) throws IOException {
+        var testCluster = super.buildTestCluster(scope, seed);
+        // Check we have at least 2 data nodes
+        // so we test serializing/deserializing of search docs
+        assertThat(testCluster.numDataNodes(), greaterThanOrEqualTo(2));
+        return testCluster;
+    }
 
     public void testEmptyIndex() throws IOException {
         createTestIndex(1);
