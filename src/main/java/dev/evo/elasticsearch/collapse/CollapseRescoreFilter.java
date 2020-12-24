@@ -135,7 +135,8 @@ public class CollapseRescoreFilter implements ActionFilter {
             }
 
             // We cannot return a group sort value within search docs due to next check:
-            // https://github.com/elastic/elasticsearch/blob/v6.8.13/server/src/main/java/org/elasticsearch/search/query/QuerySearchResult.java#L130
+            // https://github.com/elastic/elasticsearch/blob/v6.8.13/
+            // server/src/main/java/org/elasticsearch/search/query/QuerySearchResult.java#L130
             // So we will calculate it one more time as a script field
             if (sort instanceof FieldSortBuilder) {
                 final var fieldSort = (FieldSortBuilder) sort;
