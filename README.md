@@ -1,4 +1,4 @@
-## What does this plugin allows to do?
+## What does this plugin allow to do?
 
 You can collapse search results based on field values:
 
@@ -39,14 +39,14 @@ ext:
 
 ## Why not use existing solutions?
 
-There are 2 solution for collapsing out of the box but they both have some drawbacks:
+There are 2 solution for collapsing out of the box, but they both have some drawbacks:
 
 ### [Collapse](https://www.elastic.co/guide/en/elasticsearch/reference/7.9/collapse-search-results.html)
 
 Firstly it collapses all the documents that don't have value for collapsing into a single hit.
 This can be bypassed populating some random value for such documents.
 
-And what's more important it does not support rescoring which we use a lot for deboosting products from the same company:
+What's more important it does not support rescoring which we use a lot for deboosting products from the same company:
 
 > collapse cannot be used in conjunction with 
 [scroll](https://www.elastic.co/guide/en/elasticsearch/reference/7.9/paginate-search-results.html#scroll-search-results), 
@@ -55,10 +55,10 @@ And what's more important it does not support rescoring which we use a lot for d
 
 ### [Top hits aggregation](https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-metrics-top-hits-aggregation.html)
 
-This kind of aggregation is not recommended to use for collapsing:
+This kind of aggregation is not recommended using for collapsing:
 
 > We do not recommend using top_hits as a top-level aggregation. If you want to group search hits, use the collapse parameter instead.
 
-Also we need to populute documents with some random values.
+We also need to populate documents with some random values.
 
 Although top hits aggregation calls rescore phase, its parent aggregation doesn't. So we cannot sort groups using rescored score.
