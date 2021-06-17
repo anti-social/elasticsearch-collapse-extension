@@ -1,11 +1,9 @@
-import com.jfrog.bintray.gradle.BintrayExtension
-import com.jfrog.bintray.gradle.tasks.RecordingCopyTask
 import java.util.Date
 
 buildscript {
     val esVersion = project.properties["esVersion"] ?: "6.8.13"
     repositories {
-        jcenter()
+        mavenCentral()
     }
     dependencies {
         classpath("org.elasticsearch.gradle:build-tools:$esVersion")
@@ -16,14 +14,13 @@ plugins {
     java
     idea
     id("org.ajoberstar.grgit") version "4.1.0"
-    id("com.jfrog.bintray") version "1.8.5"
 }
 
 apply {
     plugin("elasticsearch.esplugin")
 }
 
-group = "dev.evo"
+group = "dev.evo.elasticsearch"
 
 val lastTag = grgit.describe(mapOf("match" to listOf("v*"), "tags" to true)) ?: "v0.0.0"
 val pluginVersion = lastTag.split('-', limit=2)[0].trimStart('v')
@@ -66,39 +63,4 @@ tasks.named("testingConventions") {
 }
 tasks.named("unitTest") {
     enabled = false
-}
-
-
-bintray {
-    user = if (hasProperty("bintrayUser")) {
-        property("bintrayUser").toString()
-    } else {
-        System.getenv("BINTRAY_USER")
-    }
-    key = if (hasProperty("bintrayApiKey")) {
-        property("bintrayApiKey").toString()
-    } else {
-        System.getenv("BINTRAY_API_KEY")
-    }
-    pkg(delegateClosureOf<BintrayExtension.PackageConfig> {
-        repo = "elasticsearch"
-        name = project.name
-        userOrg = "evo"
-        setLicenses("Apache-2.0")
-        setLabels("elasticsearch-plugin", "elasticsearch-collapse-extension")
-        vcsUrl = "https://github.com/anti-social/elasticsearch-collapse-extension.git"
-        version(delegateClosureOf<BintrayExtension.VersionConfig> {
-            name = pluginVersion
-            released = Date().toString()
-            vcsTag = "v$pluginVersion"
-        })
-    })
-    filesSpec(delegateClosureOf<RecordingCopyTask> {
-        val distributionsDir = buildDir.resolve("distributions")
-        from(distributionsDir)
-        include("*-$pluginVersion-*.zip")
-        into(".")
-    })
-    publish = true
-    dryRun = hasProperty("bintrayDryRun")
 }
