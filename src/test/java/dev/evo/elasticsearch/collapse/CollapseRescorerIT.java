@@ -170,11 +170,11 @@ public class CollapseRescorerIT extends ESIntegTestCase {
 
         // Ensure docs fell into different shards
         var response = client().prepareSearch(INDEX_NAME)
-            .setQuery(QueryBuilders.idsQuery().addIds("1", "4"))
+            .setQuery(QueryBuilders.idsQuery().addIds("4"))
             .setPreference("_shards:1")
             .get();
         assertSearchResponse(response);
-        assertHitCount(response, 2);
+        assertHitCount(response, 1);
 
         response = client().prepareSearch(INDEX_NAME)
             .setQuery(QueryBuilders.idsQuery().addIds("7"))
@@ -343,7 +343,7 @@ public class CollapseRescorerIT extends ESIntegTestCase {
                         new CollapseSearchExtBuilder(COLLAPSE_FIELD)
                             .addSort(SortBuilders.scriptSort(
                                 new Script(
-                                    "Math.log1p(doc['price'].value)"
+                                    "doc['price'].size() == 0 ? 0 : Math.log1p(doc['price'].value)"
                                 ),
                                 ScriptSortBuilder.ScriptSortType.NUMBER
                             ))

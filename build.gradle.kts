@@ -1,5 +1,5 @@
 buildscript {
-    val esVersion = project.properties["esVersion"] ?: "7.2.1"
+    val esVersion = project.properties["esVersion"] ?: "7.6.2"
     repositories {
         mavenCentral()
     }
@@ -46,10 +46,17 @@ configure<org.elasticsearch.gradle.plugin.PluginPropertiesExtension> {
     noticeFile = project.file("NOTICE.txt")
 }
 
-configure<org.elasticsearch.gradle.test.ClusterConfiguration> {
-    distribution = "default"
-    numNodes = 2
+configure<NamedDomainObjectContainer<org.elasticsearch.gradle.testclusters.ElasticsearchCluster>> {
+    val integTestCluster = named("integTest") {
+        setTestDistribution(org.elasticsearch.gradle.testclusters.TestDistribution.DEFAULT)
+        numberOfNodes = 2
+    }
+
+    tasks.named<org.elasticsearch.gradle.testclusters.RestTestRunnerTask>("integTestRunner") {
+        useCluster(integTestCluster.get())
+    }
 }
+
 
 // Fails with IllegalArgumentException; reason is unknown
 tasks.named("loggerUsageCheck") {
