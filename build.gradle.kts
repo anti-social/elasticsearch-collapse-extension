@@ -1,5 +1,5 @@
 buildscript {
-    val esVersion = project.properties["esVersion"] ?: "7.9.3"
+    val esVersion = project.properties["esVersion"] ?: "7.10.2"
     repositories {
         mavenCentral()
     }
@@ -16,6 +16,7 @@ plugins {
 
 apply {
     plugin("elasticsearch.esplugin")
+    plugin("elasticsearch.testclusters")
 }
 
 group = "dev.evo.elasticsearch"
@@ -47,13 +48,18 @@ configure<org.elasticsearch.gradle.plugin.PluginPropertiesExtension> {
 }
 
 configure<NamedDomainObjectContainer<org.elasticsearch.gradle.testclusters.ElasticsearchCluster>> {
-    val integTestCluster = named("integTest") {
+    val integTestCluster = create("integTest") {
         setTestDistribution(org.elasticsearch.gradle.testclusters.TestDistribution.DEFAULT)
         numberOfNodes = 2
+        plugin(tasks.named<Zip>("bundlePlugin").get().archiveFile)
     }
 
-    tasks.named<org.elasticsearch.gradle.testclusters.RestTestRunnerTask>("integTestRunner") {
-        useCluster(integTestCluster.get())
+    val integTestTask = tasks.register<org.elasticsearch.gradle.test.RestIntegTestTask>("integTest") {
+        dependsOn("bundlePlugin")
+    }
+
+    tasks.named("check") {
+        dependsOn(integTestTask)
     }
 }
 
@@ -62,6 +68,10 @@ tasks.named("licenseHeaders") {
 }
 
 tasks.named("validateNebulaPom") {
+    enabled = false
+}
+
+tasks.named("loggerUsageCheck") {
     enabled = false
 }
 
