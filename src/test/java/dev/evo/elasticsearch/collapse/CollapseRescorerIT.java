@@ -19,7 +19,7 @@
 package dev.evo.elasticsearch.collapse;
 
 import org.elasticsearch.action.index.IndexRequestBuilder;
-import org.elasticsearch.cluster.metadata.IndexMetaData;
+import org.elasticsearch.cluster.metadata.IndexMetadata;
 import org.elasticsearch.common.document.DocumentField;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.XContentBuilder;
@@ -425,7 +425,7 @@ public class CollapseRescorerIT extends ESIntegTestCase {
         assertAcked(
             prepareCreate(INDEX_NAME)
                 .setSettings(
-                    Settings.builder().put(IndexMetaData.SETTING_NUMBER_OF_SHARDS, numberOfShards)
+                    Settings.builder().put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, numberOfShards)
                 )
                 .addMapping("_doc", testMapping())
         );

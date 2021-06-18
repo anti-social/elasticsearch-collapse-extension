@@ -1,5 +1,5 @@
 buildscript {
-    val esVersion = project.properties["esVersion"] ?: "7.7.1"
+    val esVersion = project.properties["esVersion"] ?: "7.8.1"
     repositories {
         mavenCentral()
     }
