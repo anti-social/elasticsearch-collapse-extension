@@ -28,7 +28,7 @@ import org.elasticsearch.common.xcontent.ObjectParser;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.index.query.QueryRewriteContext;
-import org.elasticsearch.index.query.QueryShardContext;
+import org.elasticsearch.index.query.SearchExecutionContext;
 import org.elasticsearch.index.query.QueryShardException;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.rescore.RescoreContext;
@@ -131,7 +131,7 @@ public class CollapseRescorerBuilder extends RescorerBuilder<CollapseRescorerBui
 
     @Override
     protected RescoreContext innerBuildContext(
-        int windowSize, QueryShardContext context
+        int windowSize, SearchExecutionContext context
     ) throws IOException {
         final var groupFieldType = context.getFieldType(groupField);
         if (groupFieldType == null) {
