@@ -1,5 +1,5 @@
 buildscript {
-    val esVersion = project.properties["esVersion"] ?: "7.12.1"
+    val esVersion = project.properties["esVersion"] ?: "7.13.2"
     repositories {
         mavenCentral()
     }
@@ -63,6 +63,6 @@ configure<NamedDomainObjectContainer<org.elasticsearch.gradle.testclusters.Elast
     }
 }
 
-tasks.named("validateNebulaPom") {
+tasks.named("validateElasticPom") {
     enabled = false
 }
