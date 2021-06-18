@@ -1,5 +1,5 @@
 buildscript {
-    val esVersion = project.properties["esVersion"] ?: "7.10.2"
+    val esVersion = project.properties["esVersion"] ?: "7.11.2"
     repositories {
         mavenCentral()
     }
@@ -63,19 +63,6 @@ configure<NamedDomainObjectContainer<org.elasticsearch.gradle.testclusters.Elast
     }
 }
 
-tasks.named("licenseHeaders") {
-    enabled = false
-}
-
 tasks.named("validateNebulaPom") {
-    enabled = false
-}
-
-tasks.named("loggerUsageCheck") {
-    enabled = false
-}
-
-// We don't have unit tests yet
-tasks.named("testingConventions") {
     enabled = false
 }

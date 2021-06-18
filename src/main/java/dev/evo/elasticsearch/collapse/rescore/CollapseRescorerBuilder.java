@@ -133,7 +133,7 @@ public class CollapseRescorerBuilder extends RescorerBuilder<CollapseRescorerBui
     protected RescoreContext innerBuildContext(
         int windowSize, QueryShardContext context
     ) throws IOException {
-        final var groupFieldType = context.fieldMapper(groupField);
+        final var groupFieldType = context.getFieldType(groupField);
         if (groupFieldType == null) {
             throw new QueryShardException(
                 context, "no mapping found for `" + groupField + "` in order to collapse on"
