@@ -222,11 +222,6 @@ public class CollapseRescorer implements Rescorer {
     }
 
     @Override
-    public void extractTerms(
-        IndexSearcher searcher, RescoreContext rescoreContext, Set<Term> termsSet
-    ) {}
-
-    @Override
     public Explanation explain(
         int topLevelDocId,
         IndexSearcher searcher,
