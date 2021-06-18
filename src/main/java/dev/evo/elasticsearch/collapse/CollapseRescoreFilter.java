@@ -19,6 +19,7 @@
 package dev.evo.elasticsearch.collapse;
 
 import dev.evo.elasticsearch.collapse.rescore.CollapseRescorerBuilder;
+import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
@@ -248,8 +249,9 @@ public class CollapseRescoreFilter implements ActionFilter {
                 final var pagedCollapsedHits = collapsedHits
                     .subList(fromIndex, toIndex)
                     .toArray(new SearchHit[0]);
+                var totalHits = new TotalHits(collapsedHits.size(), TotalHits.Relation.EQUAL_TO);
                 final var collapsedSearchHits = new SearchHits(
-                    pagedCollapsedHits, collapsedHits.size(), searchHits.getMaxScore()
+                    pagedCollapsedHits, totalHits, searchHits.getMaxScore()
                 );
 
                 final var internalResponse = new InternalSearchResponse(

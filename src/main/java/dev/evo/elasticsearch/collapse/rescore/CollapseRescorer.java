@@ -19,12 +19,11 @@
 package dev.evo.elasticsearch.collapse.rescore;
 
 import org.apache.lucene.index.Term;
-import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.FieldDoc;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.Scorable;
 import org.apache.lucene.search.ScoreDoc;
-import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.util.BytesRef;
@@ -97,7 +96,7 @@ public class CollapseRescorer implements Rescorer {
         TopDocs topDocs, IndexSearcher searcher, RescoreContext rescoreContext
     ) throws IOException {
         final var ctx = (Context) rescoreContext;
-        if (topDocs == null || topDocs.totalHits == 0 || topDocs.scoreDocs.length == 0) {
+        if (topDocs == null || topDocs.totalHits.value == 0 || topDocs.scoreDocs.length == 0) {
             return topDocs;
         }
 
@@ -123,7 +122,7 @@ public class CollapseRescorer implements Rescorer {
         final var reverseMul = sortField.getReverse() ? -1 : 1;
         final var comparator = sortField.getComparator(hits.length, 0);
         final var leafComparator = comparator.getLeafComparator(currentReaderContext);
-        final var docScorer = new Scorer(null) {
+        final var docScorer = new Scorable() {
             private int doc;
             private float score;
 
@@ -143,11 +142,6 @@ public class CollapseRescorer implements Rescorer {
             @Override
             public float score() {
                 return score;
-            }
-
-            @Override
-            public DocIdSetIterator iterator() {
-                return null;
             }
         };
         leafComparator.setScorer(docScorer);
@@ -223,7 +217,7 @@ public class CollapseRescorer implements Rescorer {
             .map(doc -> new ScoreDoc(doc.doc, doc.score, doc.shardIndex))
             .toArray(ScoreDoc[]::new);
         return new TopDocs(
-            topDocs.totalHits, trimmedHits, topDocs.getMaxScore()
+            topDocs.totalHits, trimmedHits
         );
     }
 

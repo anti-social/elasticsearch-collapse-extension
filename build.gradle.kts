@@ -1,7 +1,5 @@
-import java.util.Date
-
 buildscript {
-    val esVersion = project.properties["esVersion"] ?: "6.8.13"
+    val esVersion = project.properties["esVersion"] ?: "7.0.1"
     repositories {
         mavenCentral()
     }
@@ -59,8 +57,5 @@ tasks.named("loggerUsageCheck") {
 }
 // We don't have unit tests yet
 tasks.named("testingConventions") {
-    enabled = false
-}
-tasks.named("unitTest") {
     enabled = false
 }
