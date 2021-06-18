@@ -53,7 +53,7 @@ import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertHitC
 import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertOrderedSearchHits;
 import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertSearchHit;
 import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertSearchResponse;
-import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertThrows;
+import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertRequestBuilderThrows;
 import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.hasScore;
 
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
@@ -406,7 +406,7 @@ public class CollapseRescorerIT extends ESIntegTestCase {
     public void testMultipleSort() throws IOException {
         createAndPopulateTestIndex(1);
 
-        assertThrows(
+        assertRequestBuilderThrows(
             client().prepareSearch(INDEX_NAME)
                 .setSource(
                     new SearchSourceBuilder()
