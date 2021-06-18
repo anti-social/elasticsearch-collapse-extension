@@ -1,5 +1,5 @@
 buildscript {
-    val esVersion = project.properties["esVersion"] ?: "7.8.1"
+    val esVersion = project.properties["esVersion"] ?: "7.9.3"
     repositories {
         mavenCentral()
     }
@@ -57,11 +57,14 @@ configure<NamedDomainObjectContainer<org.elasticsearch.gradle.testclusters.Elast
     }
 }
 
-
-// Fails with IllegalArgumentException; reason is unknown
-tasks.named("loggerUsageCheck") {
+tasks.named("licenseHeaders") {
     enabled = false
 }
+
+tasks.named("validateNebulaPom") {
+    enabled = false
+}
+
 // We don't have unit tests yet
 tasks.named("testingConventions") {
     enabled = false

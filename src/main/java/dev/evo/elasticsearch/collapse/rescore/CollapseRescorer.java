@@ -18,7 +18,6 @@
  */
 package dev.evo.elasticsearch.collapse.rescore;
 
-import org.apache.lucene.index.Term;
 import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.FieldDoc;
 import org.apache.lucene.search.IndexSearcher;
@@ -38,7 +37,6 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Locale;
-import java.util.Set;
 
 public class CollapseRescorer implements Rescorer {
     // private static final org.apache.logging.log4j.Logger LOGGER =
