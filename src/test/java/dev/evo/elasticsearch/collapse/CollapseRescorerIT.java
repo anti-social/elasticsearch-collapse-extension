@@ -105,6 +105,17 @@ public class CollapseRescorerIT extends ESIntegTestCase {
         );
     }
 
+    public void testEmptySearchSource() throws IOException {
+        createAndPopulateTestIndex(1);
+
+        var response = client().prepareSearch(INDEX_NAME)
+            .get();
+
+        assertSearchResponse(response);
+
+        assertHitCount(response, 7);
+    }
+
     public void testDefaultCollapsing() throws IOException {
         createAndPopulateTestIndex(1);
 

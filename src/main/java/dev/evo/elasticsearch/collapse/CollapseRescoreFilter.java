@@ -33,6 +33,7 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.aggregations.InternalAggregations;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.internal.InternalSearchResponse;
 import org.elasticsearch.search.profile.SearchProfileShardResults;
 import org.elasticsearch.search.sort.FieldSortBuilder;
@@ -103,7 +104,10 @@ public class CollapseRescoreFilter implements ActionFilter {
         }
 
         final var searchRequest = (SearchRequest) request;
-        final var source = searchRequest.source();
+        var source = searchRequest.source();
+        if (source == null) {
+            source = SearchSourceBuilder.searchSource();
+        }
         final var origSize = source.size();
         final var origFrom = source.from();
 
