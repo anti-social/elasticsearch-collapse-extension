@@ -83,7 +83,7 @@ public class CollapseRescorer implements Rescorer {
         public String toString() {
             return String.format(
                 Locale.ENGLISH,
-                "GroupedScoreDoc<doc = %s, score = %s, slot = %s, ix = %s>",
+                "CollapsedScoreDoc<doc = %s, score = %s, slot = %s, ix = %s>",
                 doc, score, slot, collapseIx
             );
         }
