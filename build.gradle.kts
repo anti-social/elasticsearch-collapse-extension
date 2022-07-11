@@ -1,3 +1,5 @@
+import java.nio.file.Paths
+
 buildscript {
     val esVersion = project.properties["esVersion"] ?: "7.9.3"
     repositories {
@@ -12,6 +14,7 @@ plugins {
     java
     idea
     id("org.ajoberstar.grgit") version "4.1.0"
+    id("nebula.ospackage") version "8.5.6"
 }
 
 apply {
@@ -25,6 +28,8 @@ val pluginVersion = lastTag.split('-', limit=2)[0].trimStart('v')
 val versions = org.elasticsearch.gradle.VersionProperties.getVersions() as Map<String, String>
 version = "$pluginVersion-es${versions["elasticsearch"]}"
 
+val distDir = Paths.get(buildDir.path, "distributions")
+
 repositories {
     mavenCentral()
 }
@@ -37,8 +42,10 @@ java {
     targetCompatibility = JavaVersion.VERSION_11
 }
 
+val pluginName = "collapse-extension"
+
 configure<org.elasticsearch.gradle.plugin.PluginPropertiesExtension> {
-    name = "collapse-extension"
+    name = pluginName
     description = "Adds rescorer for mixing up search hits inside their groups."
     classname = "dev.evo.elasticsearch.collapse.CollapseRescorePlugin"
     version = project.version.toString()
@@ -68,4 +75,24 @@ tasks.named("validateNebulaPom") {
 // We don't have unit tests yet
 tasks.named("testingConventions") {
     enabled = false
+}
+
+tasks.register("deb", com.netflix.gradle.plugins.deb.Deb::class) {
+    dependsOn("bundlePlugin")
+
+    packageName = project.name
+    requires("elasticsearch", versions["elasticsearch"])
+        .or("elasticsearch-oss", versions["elasticsearch"])
+
+    from(zipTree(tasks["bundlePlugin"].outputs.files.singleFile))
+
+    val esHome = project.properties["esHome"] ?: "/usr/share/elasticsearch"
+    into("$esHome/plugins/${pluginName}")
+
+    doLast {
+        if (properties.containsKey("assembledInfo")) {
+            distDir.resolve("assembled-deb.filename").toFile()
+                .writeText(assembleArchiveName())
+        }
+    }
 }
