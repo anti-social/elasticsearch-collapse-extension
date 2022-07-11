@@ -81,7 +81,7 @@ tasks.named("assemble") {
 tasks.register("deb", com.netflix.gradle.plugins.deb.Deb::class) {
     dependsOn("bundlePlugin")
 
-    packageName = "${project.name}"
+    packageName = project.name
     requires("elasticsearch", versions["elasticsearch"])
         .or("elasticsearch-oss", versions["elasticsearch"])
 
