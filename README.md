@@ -39,7 +39,7 @@ ext:
 
 ## Why not use existing solutions?
 
-There are 2 solution for collapsing out of the box, but they both have some drawbacks:
+There are 2 solutions for collapsing out of the box, but they both have some drawbacks:
 
 ### [Collapse](https://www.elastic.co/guide/en/elasticsearch/reference/7.9/collapse-search-results.html)
 
