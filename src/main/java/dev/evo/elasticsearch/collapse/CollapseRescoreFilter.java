@@ -232,7 +232,10 @@ public class CollapseRescoreFilter implements ActionFilter {
 
                         final var sortGroupField = hit.field(sortField);
                         final var sortValue = sortGroupField.getValue();
-                        if (reverseMul * ANY_COMPARATOR.compare(topGroup.sortValue, sortValue) > 0) {
+                        if (
+                            sortValue != null && topGroup.sortValue == null ||
+                            reverseMul * ANY_COMPARATOR.compare(topGroup.sortValue, sortValue) > 0
+                        ) {
                             hit.score(topGroup.score);
                             collapsedHits.set(topGroup.collapsedIx, hit);
                             topGroup.sortValue = sortValue;
