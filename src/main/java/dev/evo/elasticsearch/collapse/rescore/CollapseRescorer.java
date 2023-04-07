@@ -19,7 +19,6 @@
 package dev.evo.elasticsearch.collapse.rescore;
 
 import org.apache.lucene.search.Explanation;
-import org.apache.lucene.search.FieldDoc;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Scorable;
 import org.apache.lucene.search.ScoreDoc;
@@ -27,7 +26,6 @@ import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.util.BytesRef;
 import org.elasticsearch.index.fielddata.IndexFieldData;
-import org.elasticsearch.index.fielddata.SortedBinaryDocValues;
 import org.elasticsearch.search.rescore.RescoreContext;
 import org.elasticsearch.search.rescore.Rescorer;
 
@@ -39,8 +37,6 @@ import java.util.HashMap;
 import java.util.Locale;
 
 public class CollapseRescorer implements Rescorer {
-    // private static final org.apache.logging.log4j.Logger LOGGER =
-    //     org.apache.logging.log4j.LogManager.getLogger(CollapseRescorer.class);
 
     private static final CollapseRescorer INSTANCE = new CollapseRescorer();
 
@@ -69,22 +65,20 @@ public class CollapseRescorer implements Rescorer {
         }
     }
 
-    static class CollapsedScoreDoc extends FieldDoc {
+    static class CollapsedScoreDoc extends ScoreDoc {
         int slot;
-        final int collapseIx;
 
-        CollapsedScoreDoc(ScoreDoc hit, int slot, Object[] fields, int collapseIx) {
-            super(hit.doc, hit.score, fields, hit.shardIndex);
+        CollapsedScoreDoc(ScoreDoc hit, int slot) {
+            super(hit.doc, hit.score, hit.shardIndex);
             this.slot = slot;
-            this.collapseIx = collapseIx;
         }
 
         @Override
         public String toString() {
             return String.format(
                 Locale.ENGLISH,
-                "GroupedScoreDoc<doc = %s, score = %s, slot = %s, ix = %s>",
-                doc, score, slot, collapseIx
+                "CollapsedScoreDoc<doc = %s, score = %s, slot = %s>",
+                doc, score, slot
             );
         }
     }
@@ -111,7 +105,7 @@ public class CollapseRescorer implements Rescorer {
         var currentReaderIx = -1;
         var currentReaderEndDoc = 0;
         var currentReaderContext = readerContexts.get(0);
-        SortedBinaryDocValues groupValues = ctx.groupField
+        var groupValues = ctx.groupField
             .load(currentReaderContext)
             .getBytesValues();
 
@@ -119,7 +113,6 @@ public class CollapseRescorer implements Rescorer {
         final var sortField = sortFields[0];
         final var reverseMul = sortField.getReverse() ? -1 : 1;
         final var comparator = sortField.getComparator(hits.length, 0);
-        final var leafComparator = comparator.getLeafComparator(currentReaderContext);
         final var docScorer = new Scorable() {
             private int doc;
             private float score;
@@ -142,6 +135,7 @@ public class CollapseRescorer implements Rescorer {
                 return score;
             }
         };
+        var leafComparator = comparator.getLeafComparator(currentReaderContext);
         leafComparator.setScorer(docScorer);
 
         final var collapsedHits = new ArrayList<CollapsedScoreDoc>(size);
@@ -165,6 +159,8 @@ public class CollapseRescorer implements Rescorer {
 
             final int docId = hit.doc - currentReaderContext.docBase;
             if (currentReaderContext != prevReaderContext) {
+                leafComparator = comparator.getLeafComparator(currentReaderContext);
+                leafComparator.setScorer(docScorer);
                 groupValues = ctx.groupField
                     .load(currentReaderContext)
                     .getBytesValues();
@@ -180,29 +176,30 @@ public class CollapseRescorer implements Rescorer {
                 final var top = groupTops.get(groupValue);
 
                 if (top == null) {
-                    final var scoreDoc = new CollapsedScoreDoc(
-                        hit, slot, new Object[]{sortValue}, collapsedHits.size()
-                    );
+                    // There is no top document for a group value so
+                    // install it
+                    final var scoreDoc = new CollapsedScoreDoc(hit, slot);
                     collapsedHits.add(scoreDoc);
                     groupTops.put(
                         BytesRef.deepCopyOf(groupValue), scoreDoc
                     );
-                    continue;
-                }
-
-                // Use comparator's bottom as a top inverting condition
-                leafComparator.setBottom(top.collapseIx);
-                if (reverseMul * leafComparator.compareBottom(hit.doc) > 0) {
-                    top.doc = hit.doc;
-                    top.slot = slot;
-                }
-                if (hit.score > top.score) {
-                    top.score = hit.score;
+                } else {
+                    leafComparator.setBottom(top.slot);
+                    if (reverseMul * leafComparator.compareBottom(docId) > 0) {
+                        // New document is more competitive, replace top document in a group
+                        top.doc = hit.doc;
+                        top.slot = slot;
+                    }
+                    if (hit.score > top.score) {
+                        // Elasticsearch requires scores to be non-decreasing
+                        // Replace top document's score if new score is greater then current
+                        top.score = hit.score;
+                    }
                 }
             } else {
-                final var scoreDoc = new CollapsedScoreDoc(
-                    hit, slot, new Object[]{sortValue}, collapsedHits.size()
-                );
+                // A document doesn't have group value so
+                // just add it to collapsed hits list
+                final var scoreDoc = new CollapsedScoreDoc(hit, slot);
                 collapsedHits.add(scoreDoc);
             }
         }
@@ -212,6 +209,10 @@ public class CollapseRescorer implements Rescorer {
         final var numHits = Math.min(collapsedHits.size(), ctx.shardSize);
         final var trimmedHits = collapsedHits.stream()
             .limit(numHits)
+            // Elasticsearch requires only `ScoreDoc` objects in `TopDocs`.
+            // It would be nice to find a way to pass `FieldDoc`s here
+            // but it is not possible at the moment
+            // as it requires also to pass `DocValueFormat[]` somehow
             .map(doc -> new ScoreDoc(doc.doc, doc.score, doc.shardIndex))
             .toArray(ScoreDoc[]::new);
         return new TopDocs(
