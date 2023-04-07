@@ -1,7 +1,7 @@
 import java.nio.file.Paths
 
 buildscript {
-    val esVersion = project.properties["esVersion"] ?: "7.13.2"
+    val esVersion = project.properties["esVersion"] ?: "7.13.4"
     repositories {
         mavenCentral()
     }
