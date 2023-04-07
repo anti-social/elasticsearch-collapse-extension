@@ -19,6 +19,7 @@
 package dev.evo.elasticsearch.collapse;
 
 import org.elasticsearch.action.index.IndexRequestBuilder;
+import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.cluster.metadata.IndexMetadata;
 import org.elasticsearch.common.document.DocumentField;
 import org.elasticsearch.common.settings.Settings;
@@ -130,18 +131,18 @@ public class CollapseRescorerIT extends ESIntegTestCase {
         assertSearchResponse(response);
 
         assertHitCount(response, 4);
-        assertOrderedSearchHits(response, "7", "5", "3", "2");
+        assertOrderedSearchHits(response, "5", "4", "3", "2");
 
         assertSearchHit(
             response, 1,
             hasFields(
-                new DocumentField("model_id", List.of(1L))
+                new DocumentField("model_id", List.of())
             )
         );
         assertSearchHit(
             response, 2,
             hasFields(
-                new DocumentField("model_id", List.of())
+                new DocumentField("model_id", List.of(1L))
             )
         );
         assertSearchHit(
@@ -158,7 +159,7 @@ public class CollapseRescorerIT extends ESIntegTestCase {
         );
     }
 
-    public void testCollaplingSize() throws IOException {
+    public void testCollapsingSize() throws IOException {
         createAndPopulateTestIndex(1);
 
         var response = client().prepareSearch(INDEX_NAME)
@@ -173,7 +174,7 @@ public class CollapseRescorerIT extends ESIntegTestCase {
         assertSearchResponse(response);
 
         assertHitCount(response, 4);
-        assertOrderedSearchHits(response, "7", "5");
+        assertOrderedSearchHits(response, "5", "4");
     }
 
     public void testMerge() throws IOException {
@@ -206,7 +207,7 @@ public class CollapseRescorerIT extends ESIntegTestCase {
         assertSearchResponse(response);
 
         assertHitCount(response, 4);
-        assertOrderedSearchHits(response, "7", "5");
+        assertOrderedSearchHits(response, "5", "4");
     }
 
     public void testFieldSort() throws IOException {
@@ -214,9 +215,47 @@ public class CollapseRescorerIT extends ESIntegTestCase {
         checkFieldSort();
     }
 
+    public void testFieldSortReverse() throws IOException {
+        createAndPopulateTestIndex(1);
+        checkFieldSortReverse();
+    }
+
     public void testFieldSortMerge() throws IOException {
         createAndPopulateTestIndex(2);
         checkFieldSort();
+    }
+
+    public void testFieldSortReverseMerge() throws IOException {
+        createAndPopulateTestIndex(2);
+        checkFieldSortReverse();
+    }
+
+    public void testScriptSort() throws IOException {
+        createAndPopulateTestIndex(1);
+        checkScriptSort();
+    }
+
+    public void testScriptSortMerge() throws IOException {
+        createAndPopulateTestIndex(2);
+        checkScriptSort();
+    }
+
+    public void testMultipleSort() throws IOException {
+        createAndPopulateTestIndex(1);
+
+        assertRequestBuilderThrows(
+            client().prepareSearch(INDEX_NAME)
+                .setSource(
+                    new SearchSourceBuilder()
+                        .query(rankQuery())
+                        .ext(List.of(
+                            new CollapseSearchExtBuilder(COLLAPSE_FIELD)
+                                .addSort(SortBuilders.fieldSort("price"))
+                                .addSort(SortBuilders.fieldSort("rank"))
+                        ))
+                ),
+            RestStatus.BAD_REQUEST
+        );
     }
 
     private void checkFieldSort() {
@@ -234,26 +273,26 @@ public class CollapseRescorerIT extends ESIntegTestCase {
         assertSearchResponse(response);
 
         assertHitCount(response, 4);
-        assertOrderedSearchHits(response, "1", "5", "3", "6");
+        assertOrderedSearchHits(response, "5", "1", "3", "6");
 
         // Scores must be replaced from the best hit in a group
-        assertSearchHit(response, 1, hasScore(1.7F));
-        assertSearchHit(response, 2, hasScore(1.5F));
+        assertSearchHit(response, 1, hasScore(1.5F));
+        assertSearchHit(response, 2, hasScore(1.4F));
         assertSearchHit(response, 3, hasScore(1.3F));
         assertSearchHit(response, 4, hasScore(1.2F));
 
         assertSearchHit(
             response, 1,
             hasFields(
-                new DocumentField("model_id", List.of(1L)),
-                new DocumentField("price", List.of(Float.valueOf(0.01F).doubleValue()))
+                new DocumentField("model_id", List.of()),
+                new DocumentField("price", List.of())
             )
         );
         assertSearchHit(
             response, 2,
             hasFields(
-                new DocumentField("model_id", List.of()),
-                new DocumentField("price", List.of())
+                new DocumentField("model_id", List.of(1L)),
+                new DocumentField("price", List.of(Float.valueOf(0.01F).doubleValue()))
             )
         );
         assertSearchHit(
@@ -272,16 +311,6 @@ public class CollapseRescorerIT extends ESIntegTestCase {
         );
     }
 
-    public void testFieldSortReverse() throws IOException {
-        createAndPopulateTestIndex(1);
-        checkFieldSortReverse();
-    }
-
-    public void testFieldSortReverseMerge() throws IOException {
-        createAndPopulateTestIndex(2);
-        checkFieldSortReverse();
-    }
-
     private void checkFieldSortReverse() {
         var response = client().prepareSearch(INDEX_NAME)
             .setSource(
@@ -297,26 +326,26 @@ public class CollapseRescorerIT extends ESIntegTestCase {
         assertSearchResponse(response);
 
         assertHitCount(response, 4);
-        assertOrderedSearchHits(response, "7", "5", "3", "2");
+        assertOrderedSearchHits(response, "5", "7", "3", "2");
 
         // Scores must be replaced from the best hit in a group
-        assertSearchHit(response, 1, hasScore(1.7F));
-        assertSearchHit(response, 2, hasScore(1.5F));
+        assertSearchHit(response, 1, hasScore(1.5F));
+        assertSearchHit(response, 2, hasScore(1.4F));
         assertSearchHit(response, 3, hasScore(1.3F));
         assertSearchHit(response, 4, hasScore(1.2F));
 
         assertSearchHit(
             response, 1,
             hasFields(
-                new DocumentField("model_id", List.of(1L)),
-                new DocumentField("price", List.of(10.0))
+                new DocumentField("model_id", List.of()),
+                new DocumentField("price", List.of())
             )
         );
         assertSearchHit(
             response, 2,
             hasFields(
-                new DocumentField("model_id", List.of()),
-                new DocumentField("price", List.of())
+                new DocumentField("model_id", List.of(1L)),
+                new DocumentField("price", List.of(Float.valueOf(9.99F).doubleValue()))
             )
         );
         assertSearchHit(
@@ -333,16 +362,6 @@ public class CollapseRescorerIT extends ESIntegTestCase {
                 new DocumentField("price", List.of(12.0))
             )
         );
-    }
-
-    public void testScriptSort() throws IOException {
-        createAndPopulateTestIndex(1);
-        checkScriptSort();
-    }
-
-    public void testScriptSortMerge() throws IOException {
-        createAndPopulateTestIndex(1);
-        checkScriptSort();
     }
 
     private void checkScriptSort() {
@@ -365,25 +384,25 @@ public class CollapseRescorerIT extends ESIntegTestCase {
         assertSearchResponse(response);
 
         assertHitCount(response, 4);
-        assertOrderedSearchHits(response, "1", "5", "3", "6");
+        assertOrderedSearchHits(response, "5", "4", "3", "6");
 
         // Scores must be replaced from the best hit in a group
-        assertSearchHit(response, 1, hasScore(1.7F));
-        assertSearchHit(response, 2, hasScore(1.5F));
+        assertSearchHit(response, 1, hasScore(1.5F));
+        assertSearchHit(response, 2, hasScore(1.4F));
         assertSearchHit(response, 3, hasScore(1.3F));
         assertSearchHit(response, 4, hasScore(1.2F));
 
         assertSearchHit(
             response, 1,
             hasFields(
-                new DocumentField("model_id", List.of(1L)),
-                new DocumentField("_collapse_script_sort", List.of(0.00995033063186371))
+                new DocumentField("model_id", List.of()),
+                new DocumentField("_collapse_script_sort", List.of(0.0))
             )
         );
         assertSearchHit(
             response, 2,
             hasFields(
-                new DocumentField("model_id", List.of()),
+                new DocumentField("model_id", List.of(1L)),
                 new DocumentField("_collapse_script_sort", List.of(0.0))
             )
         );
@@ -403,24 +422,6 @@ public class CollapseRescorerIT extends ESIntegTestCase {
         );
     }
 
-    public void testMultipleSort() throws IOException {
-        createAndPopulateTestIndex(1);
-
-        assertRequestBuilderThrows(
-            client().prepareSearch(INDEX_NAME)
-                .setSource(
-                    new SearchSourceBuilder()
-                        .query(rankQuery())
-                        .ext(List.of(
-                            new CollapseSearchExtBuilder(COLLAPSE_FIELD)
-                                .addSort(SortBuilders.fieldSort("price"))
-                                .addSort(SortBuilders.fieldSort("rank"))
-                        ))
-                ),
-            RestStatus.BAD_REQUEST
-        );
-    }
-
     private void createTestIndex(int numberOfShards) throws IOException {
         assertAcked(
             prepareCreate(INDEX_NAME)
@@ -434,8 +435,12 @@ public class CollapseRescorerIT extends ESIntegTestCase {
 
     private void createAndPopulateTestIndex(int numberOfShards) throws IOException {
         createTestIndex(numberOfShards);
-        for (var doc : testDocs()) {
-            doc.setIndex(INDEX_NAME).setType("_doc").get();
+        for (var docs : testDocs()) {
+            final var bulk = client().prepareBulk().setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+            for (var doc : docs) {
+                bulk.add(doc.setIndex(INDEX_NAME).setType("_doc"));
+            }
+            bulk.get();
         }
         refresh(INDEX_NAME);
     }
@@ -465,53 +470,56 @@ public class CollapseRescorerIT extends ESIntegTestCase {
             .endObject();
     }
 
-    private List<IndexRequestBuilder> testDocs() {
+    private List<List<IndexRequestBuilder>> testDocs() {
         return List.of(
-            client().prepareIndex()
-                .setId("1")
-                .setSource(
-                    COLLAPSE_FIELD, 1,
-                    "rank", 1.1F,
-                    "price", 0.01F
-                ),
-            client().prepareIndex()
-                .setId("2")
-                .setSource(
-                    COLLAPSE_FIELD, 2,
-                    "rank", 1.2F,
-                    "price", 12F
-                ),
-            client().prepareIndex()
-                .setId("3")
-                .setSource(
-                    "rank", 1.3F
-                ),
-            client().prepareIndex()
-                .setId("4")
-                .setSource(
-                    COLLAPSE_FIELD, 1,
-                    "rank", 1.4F,
-                    "price", 9.99F
-                ),
-            client().prepareIndex()
-                .setId("5")
-                .setSource(
-                    "rank", 1.5F
-                ),
-            client().prepareIndex()
-                .setId("6")
-                .setSource(
-                    COLLAPSE_FIELD, 2,
-                    "rank", 0.6F,
-                    "price", 11F
-                ),
-            client().prepareIndex()
-                .setId("7")
-                .setSource(
-                    COLLAPSE_FIELD, 1,
-                    "rank", 1.7F,
-                    "price", 10F
-                )
+            List.of(
+                client().prepareIndex()
+                    .setId("1")
+                    .setSource(
+                        COLLAPSE_FIELD, 1,
+                        "rank", 1.1F,
+                        "price", 0.01F
+                    ),
+                client().prepareIndex()
+                    .setId("2")
+                    .setSource(
+                        COLLAPSE_FIELD, 2,
+                        "rank", 1.2F,
+                        "price", 12F
+                    ),
+                client().prepareIndex()
+                    .setId("3")
+                    .setSource(
+                        "rank", 1.3F
+                    ),
+                client().prepareIndex()
+                    .setId("4")
+                    .setSource(
+                        COLLAPSE_FIELD, 1,
+                        "rank", 1.4F
+                    )
+            ),
+            List.of(
+                client().prepareIndex()
+                    .setId("5")
+                    .setSource(
+                        "rank", 1.5F
+                    ),
+                client().prepareIndex()
+                    .setId("6")
+                    .setSource(
+                        COLLAPSE_FIELD, 2,
+                        "rank", 0.6F,
+                        "price", 11F
+                    ),
+                client().prepareIndex()
+                    .setId("7")
+                    .setSource(
+                        COLLAPSE_FIELD, 1,
+                        "rank", 1.39F,
+                        "price", 9.99F
+                    )
+            )
         );
     }
 
