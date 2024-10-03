@@ -45,6 +45,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 
 public class CollapseRescoreFilter implements ActionFilter {
     public static final Setting<Integer> COLLAPSE_RESCORE_FILTER_ORDER = Setting.intSetting(
@@ -247,22 +248,20 @@ public class CollapseRescoreFilter implements ActionFilter {
                 if (from <= 0) {
                     from = 0;
                 }
-                var fromIndex = Math.min(from, collapsedHits.size());
                 var size = origSize;
                 if (size <= 0) {
                     size = 10;
                 }
-                var toIndex = Math.min(fromIndex + size, collapsedHits.size());
-                final var pagedCollapsedHits = collapsedHits
-                    .subList(fromIndex, toIndex)
-                    .toArray(new SearchHit[0]);
+
+                final var page = collapseExt.pagination() ?
+                    paginate(collapsedHits, from, size) :
+                    collapsedHits.toArray(new SearchHit[0]);
                 var totalHits = new TotalHits(collapsedHits.size(), TotalHits.Relation.EQUAL_TO);
-                final var collapsedSearchHits = new SearchHits(
-                    pagedCollapsedHits, totalHits, searchHits.getMaxScore()
-                );
 
                 final var internalResponse = new InternalSearchResponse(
-                    collapsedSearchHits,
+                    new SearchHits(
+                        page, totalHits, searchHits.getMaxScore()
+                    ),
                     (InternalAggregations) resp.getAggregations(),
                     resp.getSuggest(),
                     new SearchProfileShardResults(resp.getProfileResults()),
@@ -282,6 +281,14 @@ public class CollapseRescoreFilter implements ActionFilter {
                 );
 
                 listener.onResponse(newResponse);
+            }
+
+            private SearchHit[] paginate(List<SearchHit> hits, int from, int size) {
+                var fromIndex = Math.min(from, hits.size());
+                var toIndex = Math.min(fromIndex + size, hits.size());
+                return hits
+                    .subList(fromIndex, toIndex)
+                    .toArray(new SearchHit[0]);
             }
 
             @Override
