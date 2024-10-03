@@ -177,6 +177,27 @@ public class CollapseRescorerIT extends ESIntegTestCase {
         assertOrderedSearchHits(response, "5", "4");
     }
 
+    public void testDisabledPagination() throws IOException {
+        createAndPopulateTestIndex(1);
+
+        var response = client().prepareSearch(INDEX_NAME)
+            .setSource(
+                new SearchSourceBuilder()
+                    .query(rankQuery())
+                    .ext(List.of(
+                        new CollapseSearchExtBuilder(COLLAPSE_FIELD)
+                            .pagination(false)
+                    ))
+                    .size(2)
+            )
+            .get();
+
+        assertSearchResponse(response);
+
+        assertHitCount(response, 4);
+        assertOrderedSearchHits(response, "5", "4", "3", "2");
+    }
+
     public void testMerge() throws IOException {
         createAndPopulateTestIndex(2);
 
