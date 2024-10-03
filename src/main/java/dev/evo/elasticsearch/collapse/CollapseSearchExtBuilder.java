@@ -49,6 +49,9 @@ public class CollapseSearchExtBuilder extends SearchExtBuilder {
     private static final ParseField SHARD_SIZE_FIELD_NAME = new ParseField("shard_size");
     private static final int DEFAULT_SHARD_SIZE = 1_000;
 
+    private static final ParseField PAGINATION_FIELD_NAME = new ParseField("pagination");
+    private static final boolean DEFAULT_PAGINATION = true;
+
     private static final ConstructingObjectParser<CollapseSearchExtBuilder, Void> PARSER =
         new ConstructingObjectParser<>(
             NAME,
@@ -58,6 +61,7 @@ public class CollapseSearchExtBuilder extends SearchExtBuilder {
         PARSER.declareString(ConstructingObjectParser.constructorArg(), GROUP_FIELD_NAME);
         PARSER.declareInt(CollapseSearchExtBuilder::windowSize, WINDOW_SIZE_FIELD_NAME);
         PARSER.declareInt(CollapseSearchExtBuilder::shardSize, SHARD_SIZE_FIELD_NAME);
+        PARSER.declareBoolean(CollapseSearchExtBuilder::pagination, PAGINATION_FIELD_NAME);
         PARSER.declareField(
             CollapseSearchExtBuilder::setSorts,
             (parser, ctx) -> checkSorts(SortBuilder.fromXContent(parser)),
@@ -69,6 +73,7 @@ public class CollapseSearchExtBuilder extends SearchExtBuilder {
     private final String groupField;
     private int windowSize = DEFAULT_WINDOW_SIZE;
     private int shardSize = DEFAULT_SHARD_SIZE;
+    private boolean pagination = DEFAULT_PAGINATION;
     private List<SortBuilder<?>> sorts;
 
     public CollapseSearchExtBuilder(String groupField) {
@@ -80,6 +85,7 @@ public class CollapseSearchExtBuilder extends SearchExtBuilder {
         groupField = in.readString();
         windowSize = in.readInt();
         shardSize = in.readInt();
+        pagination = in.readBoolean();
         final int size = in.readVInt();
         sorts = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
@@ -93,6 +99,7 @@ public class CollapseSearchExtBuilder extends SearchExtBuilder {
         out.writeString(groupField);
         out.writeInt(windowSize);
         out.writeInt(shardSize);
+        out.writeBoolean(pagination);
         out.writeVInt(sorts.size());
         for (var sort : sorts) {
             out.writeNamedWriteable(sort);
@@ -123,20 +130,31 @@ public class CollapseSearchExtBuilder extends SearchExtBuilder {
         return groupField;
     }
 
-    public void windowSize(int size) {
+    public CollapseSearchExtBuilder windowSize(int size) {
         this.windowSize = size;
+        return this;
     }
 
     public int windowSize() {
         return windowSize;
     }
 
-    public void shardSize(int shardSize) {
+    public CollapseSearchExtBuilder shardSize(int shardSize) {
         this.shardSize = shardSize;
+        return this;
     }
 
     public int shardSize() {
         return shardSize;
+    }
+
+    public CollapseSearchExtBuilder pagination(boolean pagination) {
+        this.pagination = pagination;
+        return this;
+    }
+
+    public boolean pagination() {
+        return pagination;
     }
 
     public List<SortBuilder<?>> getSorts() {

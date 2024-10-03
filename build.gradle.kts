@@ -7,14 +7,18 @@ buildscript {
     }
     dependencies {
         classpath("org.elasticsearch.gradle:build-tools:$esVersion")
+        constraints {
+            classpath("com.avast.gradle:gradle-docker-compose-plugin:0.14.2")
+            classpath("com.netflix.nebula:nebula-core:4.0.1")
+        }
     }
 }
 
 plugins {
     java
     idea
-    id("org.ajoberstar.grgit") version "4.1.0"
-    id("nebula.ospackage") version "8.5.6"
+    id("org.ajoberstar.grgit") version "4.1.1"
+    id("nebula.ospackage") version "9.1.1"
 }
 
 apply {
