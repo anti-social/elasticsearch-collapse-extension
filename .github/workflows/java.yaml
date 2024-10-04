@@ -3,121 +3,27 @@ name: Java CI
 on:
   push:
     branches:
-      - '**'
+    - '**'
     tags:
-      - 'v*-es*'
+    - 'v*-es*'
   pull_request:
-
-env:
-  GRADLE_ARGS: "--info --stacktrace"
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      JDK_IMAGE: eclipse-temurin:16
     steps:
-      - uses: actions/checkout@v4
+    - uses: anti-social/elasticsearch-plugin-github-action/build@v1.0.1
+      with:
+        es-version: '7.9'
 
-      - name: Install podman
-        run: |
-          sudo apt-get update
-          sudo apt-get install podman
-
-      - name: Pull jdk image
-        run: |
-          podman pull $JDK_IMAGE
-
-      - name: Cache gradle wrapper
-        uses: actions/cache@v4
-        with:
-          path: ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
-          restore-keys: ${{ runner.os }}-gradle-wrapper
-
-      - uses: actions/upload-artifact@v2
-        if: |
-          github.event_name == 'push' &&
-          startsWith(github.ref, 'refs/tags/v')
-        with:
-          name: elasticsearch-plugin
-          path: |
-            build/distributions/*.zip
-            build/distributions/*.deb
-
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.gradle/caches
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle', '**/*.gradle.kts') }}
-          restore-keys: ${{ runner.os }}-gradle-deps
-
-      - name: Assemble and run tests
-        run: |
-          set -eux
-          PODMAN_RUN_OPTS="-it --rm --init --userns keep-id --net host -v $(pwd):/work -w /work $JDK_IMAGE"
-          podman run $PODMAN_RUN_OPTS ./gradlew assemble $GRADLE_ARGS
-          podman run $PODMAN_RUN_OPTS ./gradlew test $GRADLE_ARGS
-          podman run $PODMAN_RUN_OPTS ./gradlew integTest $GRADLE_ARGS
-
-      - name: Save release version
-        if: |
-          github.event_name == 'push' &&
-          startsWith(github.ref, 'refs/tags/v')
-        run: |
-          set -eux
-          RELEASE_VERSION=$(echo $GITHUB_REF| sed 's/refs\/tags\/v\(.*\)/\1/')
-          echo $RELEASE_VERSION > build/distributions/release.version
-          ls -lh build/distributions
-
-      - name: Upload plugin artifact
-        uses: actions/upload-artifact@v4
-        if: |
-          github.event_name == 'push' &&
-          startsWith(github.ref, 'refs/tags/v')
-        with:
-          name: elasticsearch-plugin
-          path: |
-            build/distributions/release.version
-            build/distributions/*.zip
-
-  release_es_plugin:
+  release:
     runs-on: ubuntu-latest
     if: |
       github.event_name == 'push' &&
       startsWith(github.ref, 'refs/tags/v')
     needs:
-      - build
+    - build
+    permissions:
+      contents: write
     steps:
-      - uses: actions/download-artifact@v2
-        with:
-          name: elasticsearch-plugin
-
-      - name: Create release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-
-      - name: Fetch release version
-        run: |
-          set -eux
-          ls -l
-          RELEASE_VERSION=$(cat release.version)
-          echo "Found release: $RELEASE_VERSION"
-          echo "RELEASE_ARTIFACT_NAME=rescore-grouping-mixup-$RELEASE_VERSION.zip" >> $GITHUB_ENV
-
-      - name: Upload release
-        id: upload-release
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ env.RELEASE_ARTIFACT_NAME }}
-          asset_name: ${{ env.RELEASE_ARTIFACT_NAME }}
-          asset_content_type: application/zip
+    - uses: anti-social/elasticsearch-plugin-github-action/release@v1.0.1
