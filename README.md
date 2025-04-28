@@ -33,7 +33,7 @@ ext:
             float price = doc['price'].value;           
             return base + Math.log1p(price * (1.0 + dev));
           params:
-            seed: 123456  # seed из сессии
+            seed: 123456
         order: asc
 ```
 
